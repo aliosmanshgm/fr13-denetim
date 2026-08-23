@@ -169,3 +169,9 @@ details{margin-top:3px}details summary{font-size:11px;color:#536b80;cursor:point
 @media(max-width:900px){.finding-text-grid{grid-template-columns:1fr}.finding-summary-kpis{grid-template-columns:repeat(3,1fr);max-width:none}.finding-summary-table{min-width:760px}}
 @media(max-width:560px){.finding-level-buttons{grid-template-columns:1fr}.overview-metric-grid.four{grid-template-columns:1fr 1fr}.finding-summary-kpis{grid-template-columns:1fr 1fr 1fr}}
 @media print{.finding-detail-box{break-inside:avoid}.finding-summary-panel{box-shadow:none}.finding-summary-title-row .btn{display:none!important}}
+
+
+/* UX v13 - Excel / PDF dışa aktarma */
+.btn.export-excel{background:#f1faf4;color:#176b3a;border-color:#a9cfb7}.btn.export-excel:hover{background:#e7f6ec;border-color:#7bb18f;filter:none}
+.btn.export-pdf{background:#fff5f4;color:#9f241b;border-color:#e4b5b0}.btn.export-pdf:hover{background:#ffebe9;border-color:#d78c85;filter:none}
+@media(max-width:760px){.summary-actions{width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.summary-actions .btn{justify-content:center;text-align:center}}

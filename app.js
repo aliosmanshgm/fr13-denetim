@@ -11,7 +11,7 @@
     appHeader:$('appHeader'), appShell:$('appShell'), storageBadge:$('storageBadge'), saveStatusBadge:$('saveStatusBadge'), saveStatusDetail:$('saveStatusDetail'), currentUserLabel:$('currentUserLabel'), signOutBtn:$('signOutBtn'),
     auditList:$('auditList'), auditSearch:$('auditSearch'), newAuditBtn:$('newAuditBtn'),
     emptyState:$('emptyState'), workspace:$('auditWorkspace'), auditNoLabel:$('auditNoLabel'), auditTitle:$('auditTitle'), auditMeta:$('auditMeta'),
-    editAuditBtn:$('editAuditBtn'), exportBtn:$('exportBtn'), printBtn:$('printBtn'),
+    editAuditBtn:$('editAuditBtn'), excelExportBtn:$('excelExportBtn'), pdfExportBtn:$('pdfExportBtn'), exportBtn:$('exportBtn'), printBtn:$('printBtn'),
     kpiProgress:$('kpiProgress'), kpiCompliant:$('kpiCompliant'), kpiNoncompliant:$('kpiNoncompliant'), kpiNA:$('kpiNA'), kpiNotAsked:$('kpiNotAsked'), kpiRemote:$('kpiRemote'), kpiOnsite:$('kpiOnsite'),
     kpiPending:$('kpiPending'), kpiOverdue:$('kpiOverdue'), kpiUndated:$('kpiUndated'), auditProgressBar:$('auditProgressBar'), auditProgressPercent:$('auditProgressPercent'), findingSummaryPanel:$('findingSummaryPanel'), findingSummaryList:$('findingSummaryList'), findingSummaryAttention:$('findingSummaryAttention'), findingLevel1Count:$('findingLevel1Count'), findingLevel2Count:$('findingLevel2Count'), findingObservationCount:$('findingObservationCount'), showNoncompliantBtn:$('showNoncompliantBtn'), followUpPanel:$('followUpPanel'), followUpList:$('followUpList'), followUpAttention:$('followUpAttention'), showAllPendingBtn:$('showAllPendingBtn'),
     criterionSearch:$('criterionSearch'), typeFilter:$('typeFilter'), resultFilter:$('resultFilter'), followUpFilter:$('followUpFilter'), nextUnassessedBtn:$('nextUnassessedBtn'), expandAllBtn:$('expandAllBtn'), questions:$('questions'),
@@ -709,11 +709,221 @@
     }
   }
 
+  function exportFileBase(a){
+    const raw=(a.auditNo||a.organizationName||'denetim').trim() || 'denetim';
+    return `FR13_${raw.replace(/[^a-z0-9çğıöşü_-]+/gi,'_').replace(/^_+|_+$/g,'')}`;
+  }
+
+  function exportStats(a){
+    const out={assessed:0,compliant:0,noncompliant:0,na:0,notAsked:0,remote:0,onsite:0,level1:0,level2:0,observation:0,incompleteFindings:0,pending:0,overdue:0,undated:0};
+    criteria.forEach(i=>{
+      const r=getResponse(a,i.htmlKey);
+      if(isAssessmentComplete(r)){ out.assessed++; if(i.auditType==='Uzaktan')out.remote++; else out.onsite++; }
+      if(r.result==='Uygun') out.compliant++;
+      if(r.result==='Uygun Değil'){
+        out.noncompliant++;
+        if(!isFindingComplete(r)) out.incompleteFindings++;
+        if(r.findingLevel==='Seviye 1' && isFindingComplete(r)) out.level1++;
+        if(r.findingLevel==='Seviye 2' && isFindingComplete(r)) out.level2++;
+        if(r.findingLevel==='Gözlem' && isFindingComplete(r)) out.observation++;
+      }
+      if(r.result==='N/A') out.na++;
+      if(r.result==='Sorulmadı') out.notAsked++;
+      const timing=followUpTiming(r);
+      if(isOpenFollowUpTiming(timing)) out.pending++;
+      if(timing==='overdue') out.overdue++;
+      if(timing==='undated') out.undated++;
+    });
+    out.percent=Math.round((out.assessed/criteria.length)*100);
+    return out;
+  }
+
+  function exportAuditRows(a){
+    return criteria.map((i,idx)=>{
+      const r=getResponse(a,i.htmlKey);
+      return {
+        'No':idx+1,
+        'Soru Kodu':i.shortCode,
+        'AAD':i.aadCode,
+        'Denetim Türü':i.auditType,
+        'Mevzuat / Referans':i.reference||'',
+        'Soru':i.question||'',
+        'Atomik Kriter':i.atomicCriterion||'',
+        'Denetçi Açıklaması / Kabul Edilebilir Kanıtlar':i.auditorGuidance||'',
+        'İşletme Kanıt Referansları':r.evidenceRefs||'',
+        'Denetçi Notu':r.auditorNote||'',
+        'Değerlendirme Sonucu':r.result||'Değerlendirilmedi',
+        'Bulgu Seviyesi':r.findingLevel||'',
+        'Ön Tanımlı Bulgu':r.predefinedFinding||'',
+        'Bulgu Açıklaması':r.findingDescription||'',
+        'Takip / Beklenen Husus':r.followUpText||'',
+        'Hatırlatma Tarihi':r.reminderDate?formatDate(r.reminderDate):'',
+        'Takip Durumu':hasFollowUp(r)?followUpLabel(r):'',
+        'Takip Açılış Tarihi':r.followUpCreatedAt?new Date(r.followUpCreatedAt).toLocaleString('tr-TR'):'',
+        'Takip Tamamlanma Tarihi':r.completedAt?new Date(r.completedAt).toLocaleString('tr-TR'):'',
+        'Son Güncelleme':r.updatedAt?new Date(r.updatedAt).toLocaleString('tr-TR'):''
+      };
+    });
+  }
+
+  function exportFindingRows(a){
+    return criteria.map(i=>({i,r:getResponse(a,i.htmlKey)})).filter(x=>isNoncompliant(x.r)).map(({i,r})=>({
+      'Soru Kodu':i.shortCode,'AAD':i.aadCode,'Denetim Türü':i.auditType,'Bulgu Seviyesi':r.findingLevel||'',
+      'Ön Tanımlı Bulgu':r.predefinedFinding||'','Bulgu Açıklaması':r.findingDescription||'',
+      'Mevzuat / Referans':i.reference||'','İşletme Kanıt Referansları':r.evidenceRefs||'','Denetçi Notu':r.auditorNote||'',
+      'Kayıt Durumu':isFindingComplete(r)?'Tam':'Zorunlu bilgi eksik'
+    }));
+  }
+
+  function exportFollowUpRows(a,openOnly=false){
+    return criteria.map(i=>({i,r:getResponse(a,i.htmlKey)})).filter(({r})=>hasFollowUp(r) && (!openOnly || isOpenFollowUpTiming(followUpTiming(r)))).map(({i,r})=>({
+      'Soru Kodu':i.shortCode,'AAD':i.aadCode,'Denetim Türü':i.auditType,'Beklenen Husus':r.followUpText||'',
+      'Hatırlatma Tarihi':r.reminderDate?formatDate(r.reminderDate):'','Durum':followUpLabel(r),
+      'Açılış':r.followUpCreatedAt?new Date(r.followUpCreatedAt).toLocaleString('tr-TR'):'',
+      'Tamamlanma':r.completedAt?new Date(r.completedAt).toLocaleString('tr-TR'):'','Denetçi Notu':r.auditorNote||''
+    }));
+  }
+
+  function setSheetWidths(ws,widths){ ws['!cols']=widths.map(w=>({wch:w})); }
+
+  function exportExcel(){
+    const a=currentAudit(); if(!a)return;
+    if(typeof XLSX==='undefined'){ toast('Excel dışa aktarma kütüphanesi yüklenemedi. İnternet bağlantısını kontrol edin.'); return; }
+    try{
+      const st=exportStats(a);
+      const wb=XLSX.utils.book_new();
+      const summary=[
+        ['FR.13 Emniyet Olayları Denetimi'],
+        ['İşletme / Kuruluş',a.organizationName||''],['Denetim No',a.auditNo||''],['Durum',a.status||''],
+        ['Başlangıç Tarihi',a.startDate?formatDate(a.startDate):''],['Bitiş Tarihi',a.endDate?formatDate(a.endDate):''],
+        ['Baş Denetçi',a.leadAuditor||''],['Denetim Ekibi',a.auditors||''],['Genel Denetim Notu',a.generalNote||''],
+        ['Form',`${T.templateId} / ${T.formatVersion}`],['Dışa Aktarım Zamanı',new Date().toLocaleString('tr-TR')],[],
+        ['DEĞERLENDİRME ÖZETİ','ADET / DURUM'],
+        ['Değerlendirilen AAD',`${st.assessed}/${criteria.length} (%${st.percent})`],['Uygun',st.compliant],['Uygun Değil',st.noncompliant],['N/A',st.na],['Sorulmadı',st.notAsked],
+        ['Uzaktan tamamlanan',`${st.remote}/23`],['Yerinde tamamlanan',`${st.onsite}/35`],[],
+        ['TESPİT ÖZETİ','ADET'],['Seviye 1',st.level1],['Seviye 2',st.level2],['Gözlem',st.observation],['Eksik bulgu bilgisi',st.incompleteFindings],[],
+        ['TAKİP ÖZETİ','ADET'],['Açık / Bekleyen',st.pending],['Gecikmiş',st.overdue],['Tarihsiz',st.undated]
+      ];
+      const wsSummary=XLSX.utils.aoa_to_sheet(summary); setSheetWidths(wsSummary,[32,100]); wsSummary['!merges']=[XLSX.utils.decode_range('A1:B1')];
+      XLSX.utils.book_append_sheet(wb,wsSummary,'Denetim Özeti');
+
+      const allRows=exportAuditRows(a); const wsAad=XLSX.utils.json_to_sheet(allRows); setSheetWidths(wsAad,[6,13,9,13,34,42,58,58,34,46,20,16,52,60,52,18,20,22,22,22]); if(wsAad['!ref'])wsAad['!autofilter']={ref:wsAad['!ref']};
+      XLSX.utils.book_append_sheet(wb,wsAad,'AAD Değerlendirmeleri');
+
+      const findings=exportFindingRows(a); const wsFindings=XLSX.utils.json_to_sheet(findings.length?findings:[{'Bilgi':'Uygun Değil / bulgu kaydı bulunmuyor.'}]); setSheetWidths(wsFindings,[13,9,13,16,55,65,36,36,46,20]); if(findings.length&&wsFindings['!ref'])wsFindings['!autofilter']={ref:wsFindings['!ref']};
+      XLSX.utils.book_append_sheet(wb,wsFindings,'Tespitler');
+
+      const followups=exportFollowUpRows(a,false); const wsFollow=XLSX.utils.json_to_sheet(followups.length?followups:[{'Bilgi':'Takip / beklenen husus kaydı bulunmuyor.'}]); setSheetWidths(wsFollow,[13,9,13,60,18,20,22,22,46]); if(followups.length&&wsFollow['!ref'])wsFollow['!autofilter']={ref:wsFollow['!ref']};
+      XLSX.utils.book_append_sheet(wb,wsFollow,'Takipler');
+
+      XLSX.writeFile(wb,exportFileBase(a)+'.xlsx',{compression:true});
+      toast('Excel dosyası hazırlandı.');
+    }catch(err){ console.error('Excel dışa aktarma hatası',err); toast('Excel oluşturulamadı.'); }
+  }
+
+  function pdfSafe(value,empty='—'){ const x=String(value??'').trim(); return x||empty; }
+  function pdfMetaTable(a){
+    return {table:{widths:[92,'*',92,'*'],body:[
+      [{text:'İşletme / Kuruluş',style:'metaLabel'},{text:pdfSafe(a.organizationName),colSpan:3,style:'metaValue'},{},{}],
+      [{text:'Denetim No',style:'metaLabel'},{text:pdfSafe(a.auditNo),style:'metaValue'},{text:'Durum',style:'metaLabel'},{text:pdfSafe(a.status),style:'metaValue'}],
+      [{text:'Başlangıç',style:'metaLabel'},{text:a.startDate?formatDate(a.startDate):'—',style:'metaValue'},{text:'Bitiş',style:'metaLabel'},{text:a.endDate?formatDate(a.endDate):'—',style:'metaValue'}],
+      [{text:'Baş Denetçi',style:'metaLabel'},{text:pdfSafe(a.leadAuditor),style:'metaValue'},{text:'Denetim Ekibi',style:'metaLabel'},{text:pdfSafe(a.auditors),style:'metaValue'}],
+      [{text:'Genel Not',style:'metaLabel'},{text:pdfSafe(a.generalNote),colSpan:3,style:'metaValue'},{},{}]
+    ]},layout:'lightHorizontalLines',margin:[0,0,0,14]};
+  }
+
+  function exportPDF(){
+    const a=currentAudit(); if(!a)return;
+    if(typeof pdfMake==='undefined'){ toast('PDF dışa aktarma kütüphanesi yüklenemedi. İnternet bağlantısını kontrol edin.'); return; }
+    try{
+      const st=exportStats(a);
+      const findings=criteria.map(i=>({i,r:getResponse(a,i.htmlKey)})).filter(x=>isNoncompliant(x.r));
+      const openFollowups=criteria.map(i=>({i,r:getResponse(a,i.htmlKey)})).filter(x=>isOpenFollowUpTiming(followUpTiming(x.r)));
+      const content=[
+        {text:'FR.13 EMNİYET OLAYLARI DENETİMİ',style:'title'},
+        {text:'Denetim değerlendirme ve kayıt çıktısı',style:'subtitle'},
+        pdfMetaTable(a),
+        {text:'Denetim Özeti',style:'sectionTitle'},
+        {table:{widths:['*','*','*','*'],body:[
+          [{text:'İlerleme',style:'summaryLabel'},{text:'Uygun',style:'summaryLabel'},{text:'Uygun Değil',style:'summaryLabel'},{text:'Takip / Bekleyen',style:'summaryLabel'}],
+          [{text:`${st.assessed}/${criteria.length}  (%${st.percent})`,style:'summaryValue'},{text:String(st.compliant),style:'summaryValueGood'},{text:String(st.noncompliant),style:'summaryValueBad'},{text:String(st.pending),style:'summaryValueWarn'}],
+          [{text:`Uzaktan ${st.remote}/23 • Yerinde ${st.onsite}/35`,colSpan:2,style:'summarySub'},{},{text:`N/A ${st.na} • Sorulmadı ${st.notAsked}`,style:'summarySub'},{text:`Gecikmiş ${st.overdue} • Tarihsiz ${st.undated}`,style:'summarySub'}]
+        ]},layout:'lightHorizontalLines',margin:[0,0,0,12]},
+        {text:'Tespit Özeti',style:'sectionTitle'},
+        {table:{widths:['*','*','*'],body:[
+          [{text:'Seviye 1',style:'summaryLabel'},{text:'Seviye 2',style:'summaryLabel'},{text:'Gözlem',style:'summaryLabel'}],
+          [{text:String(st.level1),style:'summaryValueBad'},{text:String(st.level2),style:'summaryValueWarn'},{text:String(st.observation),style:'summaryValue'}]
+        ]},layout:'lightHorizontalLines',margin:[0,0,0,12]}
+      ];
+
+      if(findings.length){
+        content.push({text:`Uygun Değil / Bulgular (${findings.length})`,style:'sectionTitle'});
+        content.push({table:{headerRows:1,widths:[52,58,80,'*','*'],body:[
+          [{text:'Soru',style:'tableHead'},{text:'AAD',style:'tableHead'},{text:'Seviye',style:'tableHead'},{text:'Ön Tanımlı Bulgu',style:'tableHead'},{text:'Bulgu Açıklaması',style:'tableHead'}],
+          ...findings.map(({i,r})=>[i.shortCode,i.aadCode,r.findingLevel||'Eksik',r.predefinedFinding||'Eksik',r.findingDescription||'Eksik'])
+        ]},layout:'lightHorizontalLines',fontSize:7.5,margin:[0,0,0,14]});
+      }
+
+      if(openFollowups.length){
+        content.push({text:`Bekleyen İşler (${openFollowups.length})`,style:'sectionTitle'});
+        content.push({table:{headerRows:1,widths:[52,52,'*',70,78],body:[
+          [{text:'Soru',style:'tableHead'},{text:'AAD',style:'tableHead'},{text:'Beklenen Husus',style:'tableHead'},{text:'Hatırlatma',style:'tableHead'},{text:'Durum',style:'tableHead'}],
+          ...openFollowups.map(({i,r})=>[i.shortCode,i.aadCode,r.followUpText||'',r.reminderDate?formatDate(r.reminderDate):'Tarih yok',followUpLabel(r)])
+        ]},layout:'lightHorizontalLines',fontSize:7.5,margin:[0,0,0,14]});
+      }
+
+      content.push({text:'AAD Değerlendirmeleri',style:'sectionTitle',pageBreak:'before'});
+      let lastQuestion='';
+      criteria.forEach(i=>{
+        const r=getResponse(a,i.htmlKey);
+        if(i.questionCode!==lastQuestion){
+          lastQuestion=i.questionCode;
+          content.push({text:`${i.shortCode} — ${i.question}`,style:'questionTitle',margin:[0,10,0,5]});
+          if(i.reference) content.push({text:i.reference,style:'reference',margin:[0,0,0,5]});
+        }
+        const body=[
+          [{text:`${i.aadCode} • ${i.auditType}`,style:'aadTitle'},{text:pdfSafe(r.result,'Değerlendirilmedi'),style:r.result==='Uygun'?'resultGood':r.result==='Uygun Değil'?'resultBad':'resultNeutral'}],
+          [{text:'Atomik Kriter',style:'fieldLabel'},{text:pdfSafe(i.atomicCriterion),style:'fieldValue'}],
+          [{text:'Denetçi Açıklaması / Kabul Edilebilir Kanıtlar',style:'fieldLabel'},{text:pdfSafe(i.auditorGuidance),style:'fieldValue'}],
+          [{text:'İşletme Kanıt Referansları',style:'fieldLabel'},{text:pdfSafe(r.evidenceRefs),style:'fieldValue'}],
+          [{text:'Denetçi Notu',style:'fieldLabel'},{text:pdfSafe(r.auditorNote),style:'fieldValue'}]
+        ];
+        if(isNoncompliant(r)){
+          body.push([{text:'Bulgu Seviyesi',style:'fieldLabel'},{text:pdfSafe(r.findingLevel,'Eksik'),style:'fieldValue'}]);
+          body.push([{text:'Ön Tanımlı Bulgu',style:'fieldLabel'},{text:pdfSafe(r.predefinedFinding,'Eksik'),style:'fieldValue'}]);
+          body.push([{text:'Bulgu Açıklaması',style:'fieldLabel'},{text:pdfSafe(r.findingDescription,'Eksik'),style:'fieldValue'}]);
+        }
+        if(hasFollowUp(r)){
+          body.push([{text:'Takip / Beklenen Husus',style:'fieldLabel'},{text:pdfSafe(r.followUpText),style:'fieldValue'}]);
+          body.push([{text:'Takip Durumu',style:'fieldLabel'},{text:`${followUpLabel(r)}${r.reminderDate?' • '+formatDate(r.reminderDate):''}`,style:'fieldValue'}]);
+        }
+        content.push({table:{widths:[145,'*'],body},layout:{hLineColor:()=> '#d9e1e8',vLineColor:()=> '#d9e1e8',paddingLeft:()=>6,paddingRight:()=>6,paddingTop:()=>5,paddingBottom:()=>5},margin:[0,0,0,8],fontSize:7.8});
+      });
+
+      const doc={
+        pageSize:'A4',pageMargins:[34,54,34,38],
+        header:(currentPage)=>({text:`FR.13 • ${pdfSafe(a.auditNo,'Denetim')} • ${pdfSafe(a.organizationName)}`,fontSize:7,color:'#64748b',margin:[34,20,34,0],alignment:'right'}),
+        footer:(currentPage,pageCount)=>({columns:[{text:`Oluşturma: ${new Date().toLocaleString('tr-TR')}`,alignment:'left'},{text:`Sayfa ${currentPage} / ${pageCount}`,alignment:'right'}],fontSize:7,color:'#64748b',margin:[34,0,34,14]}),
+        content,
+        defaultStyle:{font:'Roboto',fontSize:8.5,color:'#17212b',lineHeight:1.18},
+        styles:{
+          title:{fontSize:17,bold:true,color:'#123b61',margin:[0,0,0,2]}, subtitle:{fontSize:9,color:'#64748b',margin:[0,0,0,14]},
+          sectionTitle:{fontSize:12,bold:true,color:'#123b61',margin:[0,7,0,6]}, metaLabel:{bold:true,color:'#536577',fillColor:'#f5f8fa',fontSize:7.5},metaValue:{fontSize:8},
+          summaryLabel:{bold:true,color:'#536577',fillColor:'#f5f8fa',alignment:'center',fontSize:7.5},summaryValue:{bold:true,fontSize:14,alignment:'center',color:'#123b61'},summaryValueGood:{bold:true,fontSize:14,alignment:'center',color:'#176b3a'},summaryValueBad:{bold:true,fontSize:14,alignment:'center',color:'#a61b1b'},summaryValueWarn:{bold:true,fontSize:14,alignment:'center',color:'#9a650c'},summarySub:{fontSize:7.5,alignment:'center',color:'#64748b'},
+          tableHead:{bold:true,color:'#fff',fillColor:'#123b61',fontSize:7.2},questionTitle:{fontSize:10,bold:true,color:'#123b61'},reference:{fontSize:7,color:'#64748b',italics:true},
+          aadTitle:{bold:true,color:'#123b61',fillColor:'#eef5fb'},resultGood:{bold:true,color:'#176b3a',alignment:'right',fillColor:'#edf9f2'},resultBad:{bold:true,color:'#a61b1b',alignment:'right',fillColor:'#fff0f0'},resultNeutral:{bold:true,color:'#536577',alignment:'right',fillColor:'#f5f8fa'},fieldLabel:{bold:true,color:'#536577',fillColor:'#f7f9fb',fontSize:7.2},fieldValue:{fontSize:7.8}
+        }
+      };
+      pdfMake.createPdf(doc).download(exportFileBase(a)+'.pdf');
+      toast('PDF raporu hazırlanıyor.');
+    }catch(err){ console.error('PDF dışa aktarma hatası',err); toast('PDF oluşturulamadı.'); }
+  }
+
   function exportAudit(){
     const a=currentAudit(); if(!a)return;
     const payload={...a,template:{id:T.templateId,version:T.formatVersion},criteriaSnapshot:criteria};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json;charset=utf-8'}); const url=URL.createObjectURL(blob); const x=document.createElement('a');
-    x.href=url; x.download=`FR13_${(a.auditNo||a.organizationName||'denetim').replace(/[^a-z0-9çğıöşü_-]+/gi,'_')}.json`; x.click(); setTimeout(()=>URL.revokeObjectURL(url),500);
+    x.href=url; x.download=exportFileBase(a)+'.json'; x.click(); setTimeout(()=>URL.revokeObjectURL(url),500);
   }
 
   els.newAuditBtn.onclick=()=>openAuditDialog(); els.editAuditBtn.onclick=()=>openAuditDialog(currentAudit()); els.auditForm.addEventListener('submit',saveAuditFromDialog); if(els.deleteAuditBtn) els.deleteAuditBtn.onclick=deleteCurrentAudit;
@@ -724,7 +934,7 @@
   if(els.showNoncompliantBtn) els.showNoncompliantBtn.onclick=()=>{els.criterionSearch.value='';els.typeFilter.value='all';els.resultFilter.value='Uygun Değil';els.followUpFilter.value='all';renderQuestions();els.questions.scrollIntoView({behavior:'smooth',block:'start'});};
   els.showAllPendingBtn.onclick=()=>{els.criterionSearch.value='';els.typeFilter.value='all';els.resultFilter.value='all';els.followUpFilter.value='pending';renderQuestions();els.questions.scrollIntoView({behavior:'smooth',block:'start'});};
   els.nextUnassessedBtn.onclick=goToNextUnassessed;
-  els.exportBtn.onclick=exportAudit; els.printBtn.onclick=()=>window.print();
+  if(els.excelExportBtn) els.excelExportBtn.onclick=exportExcel; if(els.pdfExportBtn) els.pdfExportBtn.onclick=exportPDF; els.exportBtn.onclick=exportAudit; els.printBtn.onclick=()=>window.print();
   els.loginBtn.onclick=loginWithEmailPassword;
   els.loginPass.addEventListener('keydown',e=>{if(e.key==='Enter') loginWithEmailPassword();});
   els.offlineBtn.onclick=enterOfflineMode;

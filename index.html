@@ -8,6 +8,9 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
 </head>
 <body>
   <div id="loginOverlay" class="login-overlay">
@@ -69,7 +72,9 @@
             </div>
             <div class="summary-actions">
               <button id="editAuditBtn" class="btn secondary">Denetim bilgileri</button>
-              <button id="exportBtn" class="btn secondary">JSON dışa aktar</button>
+              <button id="excelExportBtn" class="btn export-excel" title="Denetimi çok sayfalı Excel çalışma kitabı olarak dışa aktar">📊 Excel</button>
+              <button id="pdfExportBtn" class="btn export-pdf" title="Denetimin tamamını PDF raporu olarak dışa aktar">📄 PDF</button>
+              <button id="exportBtn" class="btn secondary" title="Ham denetim verisini JSON olarak dışa aktar">JSON</button>
               <button id="printBtn" class="btn secondary">Yazdır</button>
             </div>
           </div>
