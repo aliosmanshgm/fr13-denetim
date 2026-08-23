@@ -7,13 +7,13 @@
   const $ = (id) => document.getElementById(id);
   const els = {
     loginOverlay:$('loginOverlay'), loginEmail:$('loginEmail'), loginPass:$('loginPass'), loginBtn:$('loginBtn'), offlineBtn:$('offlineBtn'), loginError:$('loginError'), firebaseConfigHint:$('firebaseConfigHint'),
-    appHeader:$('appHeader'), appShell:$('appShell'), storageBadge:$('storageBadge'), currentUserLabel:$('currentUserLabel'), signOutBtn:$('signOutBtn'),
+    appHeader:$('appHeader'), appShell:$('appShell'), storageBadge:$('storageBadge'), saveStatusBadge:$('saveStatusBadge'), currentUserLabel:$('currentUserLabel'), signOutBtn:$('signOutBtn'),
     auditList:$('auditList'), auditSearch:$('auditSearch'), newAuditBtn:$('newAuditBtn'),
     emptyState:$('emptyState'), workspace:$('auditWorkspace'), auditNoLabel:$('auditNoLabel'), auditTitle:$('auditTitle'), auditMeta:$('auditMeta'),
     editAuditBtn:$('editAuditBtn'), exportBtn:$('exportBtn'), printBtn:$('printBtn'),
     kpiProgress:$('kpiProgress'), kpiFindings:$('kpiFindings'), kpiObservations:$('kpiObservations'), kpiRemote:$('kpiRemote'), kpiOnsite:$('kpiOnsite'),
     kpiPending:$('kpiPending'), kpiOverdue:$('kpiOverdue'), followUpPanel:$('followUpPanel'), followUpList:$('followUpList'), showAllPendingBtn:$('showAllPendingBtn'),
-    criterionSearch:$('criterionSearch'), typeFilter:$('typeFilter'), resultFilter:$('resultFilter'), followUpFilter:$('followUpFilter'), expandAllBtn:$('expandAllBtn'), questions:$('questions'),
+    criterionSearch:$('criterionSearch'), typeFilter:$('typeFilter'), resultFilter:$('resultFilter'), followUpFilter:$('followUpFilter'), nextUnassessedBtn:$('nextUnassessedBtn'), expandAllBtn:$('expandAllBtn'), questions:$('questions'),
     auditDialog:$('auditDialog'), auditForm:$('auditForm'), auditDialogTitle:$('auditDialogTitle'), auditId:$('auditId'), organizationName:$('organizationName'), auditNo:$('auditNo'),
     auditStatus:$('auditStatus'), auditStartDate:$('auditStartDate'), auditEndDate:$('auditEndDate'), leadAuditor:$('leadAuditor'), auditors:$('auditors'), auditGeneralNote:$('auditGeneralNote'),
     toast:$('toast')
@@ -31,6 +31,13 @@
     const [y,m,d]=value.split('-'); return (y&&m&&d) ? `${d}.${m}.${y}` : value;
   }
   function toast(msg){ els.toast.textContent=msg; els.toast.classList.remove('hidden'); clearTimeout(toast.t); toast.t=setTimeout(()=>els.toast.classList.add('hidden'),1800); }
+  function setSaveStatus(mode='saved', message=''){
+    if(!els.saveStatusBadge) return;
+    const labels={saving:'… Kaydediliyor',saved:'✓ Kaydedildi',error:'! Kayıt hatası',local:'✓ Yerel kayıt'};
+    els.saveStatusBadge.className=`badge save-status ${mode}`;
+    els.saveStatusBadge.textContent=message || labels[mode] || labels.saved;
+    els.saveStatusBadge.title=mode==='error' ? "Son değişiklik Firebase'e kaydedilemedi." : 'Son değişikliklerin kayıt durumu';
+  }
   function currentAudit(){ return state.audits.find(a=>a.id===state.activeAuditId); }
   function blankResponse(){
     return {result:'', evidenceRefs:'', auditorNote:'', followUpText:'', followUpStatus:'', reminderDate:'', followUpCreatedAt:null, completedAt:null, updatedAt:null};
@@ -76,9 +83,11 @@
     els.appShell.classList.remove('hidden');
     if(mode==='cloud'){
       els.storageBadge.textContent='Firebase'; els.storageBadge.className='badge cloud';
+      setSaveStatus('saved');
       els.currentUserLabel.textContent=state.user?.email||'';
     } else {
       els.storageBadge.textContent='Çevrimdışı / Yerel'; els.storageBadge.className='badge local';
+      setSaveStatus('local');
       els.currentUserLabel.textContent='';
     }
   }
@@ -219,7 +228,10 @@
     for(const [code,items] of groups){
       const shown=items.filter(i=>matchesFilters(i,getResponse(a,i.htmlKey))); if(!shown.length)continue;
       const first=items[0]; const open=state.expanded.has(code) || els.criterionSearch.value || els.typeFilter.value!=='all' || els.resultFilter.value!=='all' || els.followUpFilter.value!=='all';
-      html+=`<section class="question-block" data-code="${esc(code)}"><div class="question-head"><div class="question-code">${esc(first.shortCode)}</div><div><div class="question-text">${esc(first.question)}</div><div class="question-ref">${esc(first.reference)}</div></div><div class="question-count">${shown.length}/${items.length} AAD</div></div><div class="question-body ${open?'':'hidden'}">${shown.map(i=>renderAad(i,getResponse(a,i.htmlKey))).join('')}</div></section>`;
+      const assessedCount=items.filter(i=>getResponse(a,i.htmlKey).result).length;
+      const findingCount=items.filter(i=>getResponse(a,i.htmlKey).result==='Bulgu').length;
+      const followCount=items.filter(i=>['pending','overdue','today'].includes(followUpTiming(getResponse(a,i.htmlKey)))).length;
+      html+=`<section class="question-block" data-code="${esc(code)}"><div class="question-head"><div class="question-code">${esc(first.shortCode)}</div><div><div class="question-text">${esc(first.question)}</div><div class="question-ref">${esc(first.reference)}</div></div><div class="question-stats"><strong>${assessedCount}/${items.length}</strong><span>değerlendirildi</span>${findingCount?`<span class="qstat danger">${findingCount} bulgu</span>`:''}${followCount?`<span class="qstat warn">${followCount} takip</span>`:''}${shown.length!==items.length?`<span class="qstat muted">${shown.length} gösteriliyor</span>`:''}</div></div><div class="question-body ${open?'':'hidden'}">${shown.map(i=>renderAad(i,getResponse(a,i.htmlKey))).join('')}</div></section>`;
     }
     els.questions.innerHTML=html || '<div class="panel no-results">Filtreye uyan kriter bulunamadı.</div>';
     els.questions.querySelectorAll('.question-head').forEach(h=>h.onclick=()=>{
@@ -237,7 +249,16 @@
       <div class="aad-grid">
         <label>İşletme kanıt referansları<textarea class="input response-input" data-field="evidenceRefs" placeholder="Örn. OM-A 11.3.2; SMSM 6.4; QDMS DOC-123">${esc(r.evidenceRefs||'')}</textarea></label>
         <label>Denetçi notu<textarea class="input response-input" data-field="auditorNote" placeholder="Denetimde yapılan tespit / doğrulama notu">${esc(r.auditorNote||'')}</textarea></label>
-        <label>Değerlendirme sonucu<select class="input response-input result-select" data-field="result" data-value="${esc(result)}"><option value="" ${!result?'selected':''}>Değerlendirilmedi</option><option ${result==='Uygun'?'selected':''}>Uygun</option><option ${result==='Bulgu'?'selected':''}>Bulgu</option><option ${result==='Gözlem'?'selected':''}>Gözlem</option><option ${result==='Uygulanamaz'?'selected':''}>Uygulanamaz</option></select></label>
+        <label>Değerlendirme sonucu
+          <input type="hidden" class="response-input result-select" data-field="result" data-value="${esc(result)}" value="${esc(result)}" />
+          <div class="result-buttons" role="group" aria-label="Değerlendirme sonucu">
+            <button type="button" class="result-btn good ${result==='Uygun'?'active':''}" data-result="Uygun">Uygun</button>
+            <button type="button" class="result-btn danger ${result==='Bulgu'?'active':''}" data-result="Bulgu">Bulgu</button>
+            <button type="button" class="result-btn warn ${result==='Gözlem'?'active':''}" data-result="Gözlem">Gözlem</button>
+            <button type="button" class="result-btn neutral ${result==='Uygulanamaz'?'active':''}" data-result="Uygulanamaz">Uygulanamaz</button>
+            <button type="button" class="result-clear ${!result?'active':''}" data-result="" title="Değerlendirmeyi temizle">×</button>
+          </div>
+        </label>
       </div>
       <div class="followup-box ${hasTask?'active':''}">
         <div class="followup-box-title"><span>Takip / Beklenen Husus</span><small>Buraya yazılan husus otomatik olarak takip bekleyen iş kabul edilir.</small></div>
@@ -258,7 +279,17 @@
         inp.addEventListener('input',()=>scheduleResponseSave(card,inp));
         inp.addEventListener('change',()=>scheduleResponseSave(card,inp,true));
       });
+      card.querySelectorAll('.result-btn,.result-clear').forEach(btn=>btn.addEventListener('click',()=>{
+        const inp=card.querySelector('[data-field="result"]');
+        inp.value=btn.dataset.result||'';
+        inp.dataset.value=inp.value;
+        refreshResultButtons(card,inp.value);
+        scheduleResponseSave(card,inp,true);
+      }));
     });
+  }
+  function refreshResultButtons(card,result){
+    card.querySelectorAll('.result-btn,.result-clear').forEach(btn=>btn.classList.toggle('active',(btn.dataset.result||'')===result));
   }
   const saveTimers={};
   function scheduleResponseSave(card,inp,immediate=false){
@@ -280,14 +311,36 @@
     }
 
     refreshCardFollowUp(card,r);
+    refreshQuestionStats(card.closest('.question-block'));
     card.querySelector('.save-state').textContent='Kaydediliyor…';
+    setSaveStatus('saving');
     updateKpis(); renderFollowUpPanel();
     clearTimeout(saveTimers[key]);
     saveTimers[key]=setTimeout(async()=>{
-      await persistAudit(a);
-      renderAuditList();
-      card.querySelector('.save-state').textContent='Kaydedildi: '+new Date().toLocaleString('tr-TR');
-    }, immediate?50:650);
+      try{
+        await persistAudit(a);
+        renderAuditList();
+        card.querySelector('.save-state').textContent='Kaydedildi: '+new Date().toLocaleString('tr-TR');
+        setSaveStatus(state.offlineMode?'local':'saved');
+      }catch(err){
+        console.error(err);
+        card.querySelector('.save-state').textContent='Kayıt hatası — tekrar deneyin';
+        setSaveStatus('error');
+        toast('Kayıt sırasında hata oluştu. İnternet/Firebase bağlantısını kontrol edin.');
+      }
+    }, immediate?50:500);
+  }
+
+  function refreshQuestionStats(block){
+    if(!block) return;
+    const code=block.dataset.code;
+    const items=criteria.filter(i=>i.questionCode===code);
+    const a=currentAudit(); if(!a || !items.length) return;
+    const assessedCount=items.filter(i=>getResponse(a,i.htmlKey).result).length;
+    const findingCount=items.filter(i=>getResponse(a,i.htmlKey).result==='Bulgu').length;
+    const followCount=items.filter(i=>['pending','overdue','today'].includes(followUpTiming(getResponse(a,i.htmlKey)))).length;
+    const stats=block.querySelector('.question-stats'); if(!stats) return;
+    stats.innerHTML=`<strong>${assessedCount}/${items.length}</strong><span>değerlendirildi</span>${findingCount?`<span class="qstat danger">${findingCount} bulgu</span>`:''}${followCount?`<span class="qstat warn">${followCount} takip</span>`:''}`;
   }
 
   function refreshCardFollowUp(card,r){
@@ -345,9 +398,18 @@
     els.followUpList.querySelectorAll('.followup-row').forEach(row=>row.onclick=()=>goToAad(row.dataset.key));
   }
 
-  function goToAad(key){
+  function goToNextUnassessed(){
+    const a=currentAudit(); if(!a)return;
+    const type=els.typeFilter.value;
+    const candidates=criteria.filter(i=>(type==='all'||i.auditType===type) && !getResponse(a,i.htmlKey).result);
+    if(!candidates.length){ toast(type==='all'?'Tüm AAD değerlendirmeleri tamamlandı.':`${type} AAD değerlendirmeleri tamamlandı.`); return; }
+    goToAad(candidates[0].htmlKey,{preserveType:true});
+  }
+
+  function goToAad(key,options={}){
     const item=criteria.find(i=>i.htmlKey===key); if(!item)return;
-    els.criterionSearch.value=''; els.typeFilter.value='all'; els.resultFilter.value='all'; els.followUpFilter.value='all';
+    const currentType=els.typeFilter.value;
+    els.criterionSearch.value=''; els.typeFilter.value=options.preserveType?currentType:'all'; els.resultFilter.value='all'; els.followUpFilter.value='all';
     state.expanded.add(item.questionCode); renderQuestions();
     requestAnimationFrame(()=>{
       const card=els.questions.querySelector(`.aad-card[data-key="${CSS.escape(key)}"]`);
@@ -381,6 +443,7 @@
   [els.criterionSearch,els.typeFilter,els.resultFilter,els.followUpFilter].forEach(x=>x.addEventListener('input',renderQuestions));
   els.expandAllBtn.onclick=()=>{const codes=[...new Set(criteria.map(x=>x.questionCode))]; const allOpen=codes.every(c=>state.expanded.has(c)); state.expanded=new Set(allOpen?[]:codes); renderQuestions();};
   els.showAllPendingBtn.onclick=()=>{els.criterionSearch.value='';els.typeFilter.value='all';els.resultFilter.value='all';els.followUpFilter.value='pending';renderQuestions();els.questions.scrollIntoView({behavior:'smooth',block:'start'});};
+  els.nextUnassessedBtn.onclick=goToNextUnassessed;
   els.exportBtn.onclick=exportAudit; els.printBtn.onclick=()=>window.print();
   els.loginBtn.onclick=loginWithEmailPassword;
   els.loginPass.addEventListener('keydown',e=>{if(e.key==='Enter') loginWithEmailPassword();});
