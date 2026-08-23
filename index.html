@@ -25,14 +25,17 @@
   </div>
 
   <header id="appHeader" class="app-header hidden">
-    <div>
+    <div class="brand-lockup">
       <div class="eyebrow">SHGM • EYUİK</div>
       <h1>FR.13 Emniyet Olayları Denetimi</h1>
       <p>Denetim bazlı AAD değerlendirme, not ve beklenen husus takip ekranı</p>
     </div>
-    <div class="header-actions">
+    <div class="header-actions human-status-area">
+      <div class="autosave-indicator" aria-live="polite">
+        <span id="saveStatusBadge" class="badge save-status saved" title="Kayıt durumu">✓ Kaydedildi</span>
+        <div class="autosave-copy"><strong>Otomatik kayıt açık</strong><small id="saveStatusDetail">Değişiklikler Firebase'e kaydedilir</small></div>
+      </div>
       <span id="storageBadge" class="badge">Bağlantı bekleniyor</span>
-      <span id="saveStatusBadge" class="badge save-status saved" title="Kayıt durumu">✓ Kaydedildi</span>
       <span id="currentUserLabel" class="user-label"></span>
       <button id="signOutBtn" class="btn secondary">Çıkış</button>
     </div>
@@ -70,14 +73,33 @@
               <button id="printBtn" class="btn secondary">Yazdır</button>
             </div>
           </div>
-          <div class="kpis">
-            <div class="kpi"><strong id="kpiProgress">0/58</strong><span>Değerlendirilen</span></div>
-            <div class="kpi"><strong id="kpiFindings">0</strong><span>Bulgu</span></div>
-            <div class="kpi"><strong id="kpiObservations">0</strong><span>Gözlem</span></div>
-            <div class="kpi"><strong id="kpiRemote">0/23</strong><span>Uzaktan</span></div>
-            <div class="kpi"><strong id="kpiOnsite">0/35</strong><span>Yerinde</span></div>
-            <div class="kpi followup"><strong id="kpiPending">0</strong><span>Bekleyen Husus</span></div>
-            <div class="kpi overdue"><strong id="kpiOverdue">0</strong><span>Gecikmiş</span></div>
+          <div class="human-dashboard">
+            <section class="overview-card progress-overview">
+              <div class="overview-label">DENETİM İLERLEMESİ</div>
+              <div class="progress-value-row"><strong id="kpiProgress">0/58</strong><span id="auditProgressPercent">%0</span></div>
+              <div class="audit-progress-track" aria-hidden="true"><span id="auditProgressBar" style="width:0%"></span></div>
+              <div class="overview-mini-grid">
+                <div><span>Uzaktan</span><strong id="kpiRemote">0/23</strong></div>
+                <div><span>Yerinde</span><strong id="kpiOnsite">0/35</strong></div>
+              </div>
+            </section>
+            <section class="overview-card assessment-overview">
+              <div class="overview-label">DEĞERLENDİRME</div>
+              <div class="overview-metric-grid">
+                <div class="overview-metric finding"><strong id="kpiFindings">0</strong><span>Bulgu</span></div>
+                <div class="overview-metric observation"><strong id="kpiObservations">0</strong><span>Gözlem</span></div>
+              </div>
+              <p class="overview-help">Sonuçlar AAD kartlarında tek tıkla güncellenir.</p>
+            </section>
+            <section class="overview-card followup-overview">
+              <div class="overview-label">TAKİP / BEKLENEN HUSUS</div>
+              <div class="overview-metric-grid three">
+                <div class="overview-metric pending"><strong id="kpiPending">0</strong><span>Bekleyen</span></div>
+                <div class="overview-metric overdue"><strong id="kpiOverdue">0</strong><span>Gecikmiş</span></div>
+                <div class="overview-metric undated"><strong id="kpiUndated">0</strong><span>Tarihsiz</span></div>
+              </div>
+              <p class="overview-help">Gecikmiş ve tarihsiz işler daha yüksek görsel öncelik alır.</p>
+            </section>
           </div>
         </section>
 
@@ -85,42 +107,53 @@
           <div class="panel-title-row followup-title-row">
             <div>
               <h2>Bekleyen İşler</h2>
-              <p>AAD'lerde talep edilip henüz tamamlanmamış hususlar</p>
+              <p>AAD'lerde talep edilip henüz tamamlanmamış hususlar <span id="followUpAttention" class="followup-attention"></span></p>
             </div>
             <button id="showAllPendingBtn" class="btn secondary small">Takip bekleyenleri göster</button>
           </div>
           <div class="followup-table-wrap">
             <table class="followup-table">
-              <thead><tr><th>AAD</th><th>Beklenen Husus</th><th>Hatırlatma</th><th>Durum</th></tr></thead>
+              <thead><tr><th>AAD</th><th>Beklenen Husus</th><th>Hatırlatma</th><th>Durum</th><th>Hızlı İşlem</th></tr></thead>
               <tbody id="followUpList"></tbody>
             </table>
           </div>
         </section>
 
-        <section class="panel toolbar">
-          <input id="criterionSearch" class="input grow" placeholder="Soru, AAD, kriter, mevzuat, not veya takip hususu ara" />
-          <select id="typeFilter" class="input compact">
-            <option value="all">Tüm denetim türleri</option>
-            <option value="Uzaktan">Uzaktan</option>
-            <option value="Yerinde">Yerinde</option>
-          </select>
-          <select id="resultFilter" class="input compact">
-            <option value="all">Tüm sonuçlar</option>
-            <option value="unassessed">Değerlendirilmedi</option>
-            <option value="Bulgu">Sadece bulgular</option>
-            <option value="Gözlem">Sadece gözlemler</option>
-            <option value="Uygun">Sadece uygunlar</option>
-            <option value="Uygulanamaz">Uygulanamaz</option>
-          </select>
-          <select id="followUpFilter" class="input compact">
-            <option value="all">Tüm takip durumları</option>
-            <option value="pending">Takip bekleyenler</option>
-            <option value="overdue">Gecikmiş</option>
-            <option value="today">Bugün kontrol et</option>
-            <option value="completed">Tamamlanan takipler</option>
-          </select>
-          <button id="nextUnassessedBtn" class="btn">Sonraki değerlendirilmemiş</button>
-          <button id="expandAllBtn" class="btn secondary">Tümünü aç</button>
+        <section class="panel toolbar human-toolbar">
+          <div class="toolbar-search-group">
+            <label for="criterionSearch">Kontrol formunda ara</label>
+            <input id="criterionSearch" class="input grow" placeholder="Soru, AAD, kriter, mevzuat, not veya takip hususu ara" />
+          </div>
+          <div class="toolbar-filter-group">
+            <label>Görünüm filtreleri</label>
+            <div class="toolbar-filter-row">
+              <select id="typeFilter" class="input compact">
+                <option value="all">Tüm denetim türleri</option>
+                <option value="Uzaktan">Uzaktan</option>
+                <option value="Yerinde">Yerinde</option>
+              </select>
+              <select id="resultFilter" class="input compact">
+                <option value="all">Tüm sonuçlar</option>
+                <option value="unassessed">Değerlendirilmedi</option>
+                <option value="Bulgu">Sadece bulgular</option>
+                <option value="Gözlem">Sadece gözlemler</option>
+                <option value="Uygun">Sadece uygunlar</option>
+                <option value="Uygulanamaz">Uygulanamaz</option>
+              </select>
+              <select id="followUpFilter" class="input compact">
+                <option value="all">Tüm takip durumları</option>
+                <option value="pending">Takip bekleyenler</option>
+                <option value="overdue">Gecikmiş</option>
+                <option value="today">Bugün kontrol et</option>
+                <option value="undated">Tarihi belirlenmemiş</option>
+                <option value="completed">Tamamlanan takipler</option>
+              </select>
+            </div>
+          </div>
+          <div class="toolbar-action-group">
+            <button id="nextUnassessedBtn" class="btn primary-workflow">Sonraki değerlendirilmemiş →</button>
+            <button id="expandAllBtn" class="btn secondary">Tümünü aç</button>
+          </div>
         </section>
 
         <div id="questions"></div>

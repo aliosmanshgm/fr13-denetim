@@ -2,17 +2,18 @@
   const T = window.FR13_TEMPLATE;
   const criteria = T.data;
   const STORAGE_KEY = 'fr13_audit_app_v1';
-  const state = { audits: [], activeAuditId: null, firebase: null, user: null, offlineMode: false, expanded: new Set() };
+  const PENDING_SYNC_KEY = 'fr13_audit_pending_sync_v1';
+  const state = { audits: [], activeAuditId: null, firebase: null, firebaseConnected: false, user: null, offlineMode: false, expanded: new Set() };
 
   const $ = (id) => document.getElementById(id);
   const els = {
     loginOverlay:$('loginOverlay'), loginEmail:$('loginEmail'), loginPass:$('loginPass'), loginBtn:$('loginBtn'), offlineBtn:$('offlineBtn'), loginError:$('loginError'), firebaseConfigHint:$('firebaseConfigHint'),
-    appHeader:$('appHeader'), appShell:$('appShell'), storageBadge:$('storageBadge'), saveStatusBadge:$('saveStatusBadge'), currentUserLabel:$('currentUserLabel'), signOutBtn:$('signOutBtn'),
+    appHeader:$('appHeader'), appShell:$('appShell'), storageBadge:$('storageBadge'), saveStatusBadge:$('saveStatusBadge'), saveStatusDetail:$('saveStatusDetail'), currentUserLabel:$('currentUserLabel'), signOutBtn:$('signOutBtn'),
     auditList:$('auditList'), auditSearch:$('auditSearch'), newAuditBtn:$('newAuditBtn'),
     emptyState:$('emptyState'), workspace:$('auditWorkspace'), auditNoLabel:$('auditNoLabel'), auditTitle:$('auditTitle'), auditMeta:$('auditMeta'),
     editAuditBtn:$('editAuditBtn'), exportBtn:$('exportBtn'), printBtn:$('printBtn'),
     kpiProgress:$('kpiProgress'), kpiFindings:$('kpiFindings'), kpiObservations:$('kpiObservations'), kpiRemote:$('kpiRemote'), kpiOnsite:$('kpiOnsite'),
-    kpiPending:$('kpiPending'), kpiOverdue:$('kpiOverdue'), followUpPanel:$('followUpPanel'), followUpList:$('followUpList'), showAllPendingBtn:$('showAllPendingBtn'),
+    kpiPending:$('kpiPending'), kpiOverdue:$('kpiOverdue'), kpiUndated:$('kpiUndated'), auditProgressBar:$('auditProgressBar'), auditProgressPercent:$('auditProgressPercent'), followUpPanel:$('followUpPanel'), followUpList:$('followUpList'), followUpAttention:$('followUpAttention'), showAllPendingBtn:$('showAllPendingBtn'),
     criterionSearch:$('criterionSearch'), typeFilter:$('typeFilter'), resultFilter:$('resultFilter'), followUpFilter:$('followUpFilter'), nextUnassessedBtn:$('nextUnassessedBtn'), expandAllBtn:$('expandAllBtn'), questions:$('questions'),
     auditDialog:$('auditDialog'), auditForm:$('auditForm'), auditDialogTitle:$('auditDialogTitle'), auditId:$('auditId'), organizationName:$('organizationName'), auditNo:$('auditNo'),
     auditStatus:$('auditStatus'), auditStartDate:$('auditStartDate'), auditEndDate:$('auditEndDate'), leadAuditor:$('leadAuditor'), auditors:$('auditors'), auditGeneralNote:$('auditGeneralNote'),
@@ -37,6 +38,12 @@
     els.saveStatusBadge.className=`badge save-status ${mode}`;
     els.saveStatusBadge.textContent=message || labels[mode] || labels.saved;
     els.saveStatusBadge.title=mode==='error' ? "Son değişiklik Firebase'e kaydedilemedi." : 'Son değişikliklerin kayıt durumu';
+    if(els.saveStatusDetail){
+      if(mode==='saving') els.saveStatusDetail.textContent='Son değişiklik Firebase’e aktarılıyor…';
+      else if(mode==='error') els.saveStatusDetail.textContent='Kayıt başarısız — bağlantıyı kontrol edin';
+      else if(mode==='local') els.saveStatusDetail.textContent='Değişiklikler bu cihazda yerel olarak saklanıyor';
+      else els.saveStatusDetail.textContent='Son kayıt: '+new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    }
   }
   function currentAudit(){ return state.audits.find(a=>a.id===state.activeAuditId); }
   function blankResponse(){
@@ -59,6 +66,10 @@
   }
 
   function saveLocal(){ localStorage.setItem(STORAGE_KEY, JSON.stringify({audits:state.audits, activeAuditId:state.activeAuditId})); }
+  function pendingSyncIds(){ try{return new Set(JSON.parse(localStorage.getItem(PENDING_SYNC_KEY)||'[]'));}catch{return new Set();} }
+  function setPendingSyncIds(set){ localStorage.setItem(PENDING_SYNC_KEY,JSON.stringify([...set])); }
+  function markPendingSync(id){ if(!id)return; const set=pendingSyncIds(); set.add(id); setPendingSyncIds(set); }
+  function clearPendingSync(id){ const set=pendingSyncIds(); set.delete(id); setPendingSyncIds(set); }
   function loadLocal(){
     try{
       const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');
@@ -82,7 +93,7 @@
     els.appHeader.classList.remove('hidden');
     els.appShell.classList.remove('hidden');
     if(mode==='cloud'){
-      els.storageBadge.textContent='Firebase'; els.storageBadge.className='badge cloud';
+      els.storageBadge.textContent=state.firebaseConnected?'● Firebase bağlı':'○ Firebase bağlanıyor'; els.storageBadge.className='badge cloud '+(state.firebaseConnected?'connected':'');
       setSaveStatus('saved');
       els.currentUserLabel.textContent=state.user?.email||'';
     } else {
@@ -105,6 +116,13 @@
       const auth=firebase.auth();
       const db=firebase.database();
       state.firebase={auth,db};
+      db.ref('.info/connected').on('value',snap=>{
+        state.firebaseConnected=snap.val()===true;
+        if(!state.offlineMode && els.storageBadge){
+          els.storageBadge.textContent=state.firebaseConnected?'● Firebase bağlı':'○ Firebase bağlantısı yok';
+          els.storageBadge.className='badge cloud '+(state.firebaseConnected?'connected':'disconnected');
+        }
+      });
       await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
       auth.onAuthStateChanged(async user=>{
         if(user){
@@ -133,21 +151,36 @@
 
   async function loadCloud(){
     if(!state.firebase || !state.user) return;
+    const local=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');
+    const localAudits=(local.audits||[]).map(normalizeAudit);
     const snap=await state.firebase.db.ref('fr13_audits').once('value');
     const raw=snap.val()||{};
+    const pending=pendingSyncIds();
+    if(pending.size){
+      setSaveStatus('saving','… Bekleyen kayıtlar eşitleniyor');
+      for(const id of [...pending]){
+        const la=localAudits.find(a=>a.id===id); if(!la){clearPendingSync(id);continue;}
+        const cloudUpdated=raw[id]?.updatedAt||'';
+        if(!raw[id] || (la.updatedAt||'')>cloudUpdated){
+          try{ const payload={...la}; delete payload.id; await state.firebase.db.ref('fr13_audits/'+id).set(payload); raw[id]=payload; clearPendingSync(id); }
+          catch(err){ console.error('Bekleyen kayıt eşitlenemedi',id,err); }
+        } else clearPendingSync(id);
+      }
+    }
     state.audits=Object.entries(raw).map(([id,data])=>normalizeAudit({id,...(data||{})})).sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||''));
-    const local=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');
     const preferred=local.activeAuditId;
     state.activeAuditId=state.audits.some(a=>a.id===preferred)?preferred:(state.audits[0]?.id||null);
-    saveLocal(); renderAll();
+    saveLocal(); setSaveStatus('saved'); renderAll();
   }
   async function persistAudit(a){
     a.updatedAt=nowIso();
+    saveLocal();
     if(state.firebase && state.user && !state.offlineMode){
+      markPendingSync(a.id);
       const payload={...a}; delete payload.id;
       await state.firebase.db.ref('fr13_audits/'+a.id).set(payload);
-      saveLocal();
-    } else saveLocal();
+      clearPendingSync(a.id);
+    }
   }
 
   function getResponse(a,key){
@@ -161,7 +194,7 @@
     const status=effectiveFollowUpStatus(r);
     if(status==='Tamamlandı') return 'completed';
     if(status==='İptal') return 'cancelled';
-    if(!r.reminderDate) return 'pending';
+    if(!r.reminderDate) return 'undated';
     const today=localDateString();
     if(r.reminderDate < today) return 'overdue';
     if(r.reminderDate === today) return 'today';
@@ -169,16 +202,18 @@
   }
   function followUpLabel(r){
     const timing=followUpTiming(r);
-    return ({overdue:'Gecikmiş',today:'Bugün kontrol et',pending:'Bekleniyor',completed:'Tamamlandı',cancelled:'İptal'})[timing] || '';
+    return ({overdue:'Gecikmiş',today:'Bugün kontrol et',pending:'Bekleniyor',undated:'Tarih belirlenmedi',completed:'Tamamlandı',cancelled:'İptal'})[timing] || '';
   }
   function followUpClass(r){ return followUpTiming(r); }
+  function isOpenFollowUpTiming(timing){ return ['pending','undated','overdue','today'].includes(timing); }
+  function addDaysDateString(days){ const d=new Date(); d.setHours(12,0,0,0); d.setDate(d.getDate()+days); return localDateString(d); }
 
   function renderAll(){ renderAuditList(); renderWorkspace(); }
   function auditFollowUpCounts(a){
     let pending=0, overdue=0;
     criteria.forEach(i=>{
       const r=getResponse(a,i.htmlKey); const timing=followUpTiming(r);
-      if(['pending','overdue','today'].includes(timing)) pending++;
+      if(isOpenFollowUpTiming(timing)) pending++;
       if(timing==='overdue') overdue++;
     });
     return {pending,overdue};
@@ -211,9 +246,10 @@
     if(rf==='unassessed' && r.result)return false;
     if(rf!=='all' && rf!=='unassessed' && r.result!==rf)return false;
     const ff=els.followUpFilter.value; const timing=followUpTiming(r);
-    if(ff==='pending' && !['pending','overdue','today'].includes(timing)) return false;
+    if(ff==='pending' && !isOpenFollowUpTiming(timing)) return false;
     if(ff==='overdue' && timing!=='overdue') return false;
     if(ff==='today' && timing!=='today') return false;
+    if(ff==='undated' && timing!=='undated') return false;
     if(ff==='completed' && timing!=='completed') return false;
     if(q){
       const hay=[item.shortCode,item.aadCode,item.question,item.atomicCriterion,item.reference,item.auditorGuidance,r.evidenceRefs,r.auditorNote,r.followUpText].join(' ').toLocaleLowerCase('tr-TR');
@@ -230,21 +266,26 @@
       const first=items[0]; const open=state.expanded.has(code) || els.criterionSearch.value || els.typeFilter.value!=='all' || els.resultFilter.value!=='all' || els.followUpFilter.value!=='all';
       const assessedCount=items.filter(i=>getResponse(a,i.htmlKey).result).length;
       const findingCount=items.filter(i=>getResponse(a,i.htmlKey).result==='Bulgu').length;
-      const followCount=items.filter(i=>['pending','overdue','today'].includes(followUpTiming(getResponse(a,i.htmlKey)))).length;
-      html+=`<section class="question-block" data-code="${esc(code)}"><div class="question-head"><div class="question-code">${esc(first.shortCode)}</div><div><div class="question-text">${esc(first.question)}</div><div class="question-ref">${esc(first.reference)}</div></div><div class="question-stats"><strong>${assessedCount}/${items.length}</strong><span>değerlendirildi</span>${findingCount?`<span class="qstat danger">${findingCount} bulgu</span>`:''}${followCount?`<span class="qstat warn">${followCount} takip</span>`:''}${shown.length!==items.length?`<span class="qstat muted">${shown.length} gösteriliyor</span>`:''}</div></div><div class="question-body ${open?'':'hidden'}">${shown.map(i=>renderAad(i,getResponse(a,i.htmlKey))).join('')}</div></section>`;
+      const followCount=items.filter(i=>isOpenFollowUpTiming(followUpTiming(getResponse(a,i.htmlKey)))).length;
+      const questionPct=Math.round((assessedCount/items.length)*100);
+      html+=`<section class="question-block" data-code="${esc(code)}"><div class="question-head"><div class="question-code">${esc(first.shortCode)}</div><div class="question-main"><div class="question-text">${esc(first.question)}</div><div class="question-ref">${esc(first.reference)}</div><div class="question-progress-track"><span style="width:${questionPct}%"></span></div></div><div class="question-stats"><strong>${assessedCount}/${items.length}</strong><span>değerlendirildi</span>${findingCount?`<span class="qstat danger">${findingCount} bulgu</span>`:''}${followCount?`<span class="qstat warn">${followCount} takip</span>`:''}${shown.length!==items.length?`<span class="qstat muted">${shown.length} gösteriliyor</span>`:''}<span class="question-chevron">${open?'⌃':'⌄'}</span></div></div><div class="question-body ${open?'':'hidden'}">${shown.map(i=>renderAad(i,getResponse(a,i.htmlKey))).join('')}</div></section>`;
     }
     els.questions.innerHTML=html || '<div class="panel no-results">Filtreye uyan kriter bulunamadı.</div>';
     els.questions.querySelectorAll('.question-head').forEach(h=>h.onclick=()=>{
       const block=h.closest('.question-block');const body=block.querySelector('.question-body');body.classList.toggle('hidden');
       if(body.classList.contains('hidden'))state.expanded.delete(block.dataset.code);else state.expanded.add(block.dataset.code);
+      const chevron=block.querySelector('.question-chevron'); if(chevron) chevron.textContent=body.classList.contains('hidden')?'⌄':'⌃';
     });
     bindResponseInputs();
   }
   function renderAad(i,r){
     const result=r.result||''; const hasTask=hasFollowUp(r); const taskClass=followUpClass(r); const taskLabel=followUpLabel(r);
     const status=effectiveFollowUpStatus(r);
-    return `<article class="aad-card ${taskClass==='overdue'?'has-overdue':hasTask?'has-followup':''}" data-key="${esc(i.htmlKey)}">
-      <div class="aad-top"><div><div class="aad-title"><strong>${esc(i.shortCode)} / ${esc(i.aadCode)}</strong><span class="chip ${i.auditType==='Uzaktan'?'remote':'onsite'}">${esc(i.auditType)}</span>${hasTask?`<span class="followup-badge ${taskClass}">${esc(taskLabel)}</span>`:''}</div><div class="criterion">${esc(i.atomicCriterion)}</div></div></div>
+    const resultClass=result ? 'result-'+result.replace(/[^a-zA-Z0-9ÇĞİÖŞÜçğıöşü]/g,'-') : 'result-unassessed';
+    const resultLabel=result||'Değerlendirilmedi';
+    const resultIcon=({Uygun:'✓',Bulgu:'!',Gözlem:'•',Uygulanamaz:'—'})[result]||'○';
+    return `<article class="aad-card ${resultClass} ${taskClass==='overdue'?'has-overdue':hasTask?'has-followup':''}" data-key="${esc(i.htmlKey)}">
+      <div class="aad-top"><div class="aad-heading-main"><div class="aad-title"><strong>${esc(i.shortCode)} / ${esc(i.aadCode)}</strong><span class="chip ${i.auditType==='Uzaktan'?'remote':'onsite'}">${esc(i.auditType)}</span>${hasTask?`<span class="followup-badge ${taskClass}">${esc(taskLabel)}</span>`:''}</div><div class="criterion">${esc(i.atomicCriterion)}</div></div><span class="aad-result-pill ${resultClass}"><b>${resultIcon}</b>${esc(resultLabel)}</span></div>
       <details><summary>Denetçi açıklaması / kabul edilebilir kanıtlar</summary><div class="guidance">${esc(i.auditorGuidance||'')}</div></details>
       <div class="aad-grid">
         <label>İşletme kanıt referansları<textarea class="input response-input" data-field="evidenceRefs" placeholder="Örn. OM-A 11.3.2; SMSM 6.4; QDMS DOC-123">${esc(r.evidenceRefs||'')}</textarea></label>
@@ -261,15 +302,27 @@
         </label>
       </div>
       <div class="followup-box ${hasTask?'active':''}">
-        <div class="followup-box-title"><span>Takip / Beklenen Husus</span><small>Buraya yazılan husus otomatik olarak takip bekleyen iş kabul edilir.</small></div>
+        <div class="followup-box-title"><span>Takip / Beklenen Husus</span><small>Buraya yazılan husus otomatik olarak açık takip kabul edilir. Hatırlatma tarihi boş bırakılırsa ayrıca uyarılır.</small></div>
         <div class="followup-grid">
           <label class="followup-text-field">Talep edilen / beklenen husus<textarea class="input response-input followup-text" data-field="followUpText" placeholder="Örn. İşletmeden güncel olay kayıt listesi talep edildi.">${esc(r.followUpText||'')}</textarea></label>
-          <label>Hatırlatma tarihi<input type="date" class="input response-input" data-field="reminderDate" value="${esc(r.reminderDate||'')}" ${hasTask?'':'disabled'} /></label>
-          <label>Takip durumu<select class="input response-input followup-status" data-field="followUpStatus" ${hasTask?'':'disabled'}><option value="Bekleniyor" ${status==='Bekleniyor'?'selected':''}>Bekleniyor</option><option value="Tamamlandı" ${status==='Tamamlandı'?'selected':''}>Tamamlandı</option><option value="İptal" ${status==='İptal'?'selected':''}>İptal</option></select></label>
+          <div class="followup-date-field">
+            <label>Hatırlatma tarihi<input type="date" class="input response-input" data-field="reminderDate" value="${esc(r.reminderDate||'')}" ${hasTask?'':'disabled'} /></label>
+            <div class="followup-date-presets">
+              <button type="button" class="followup-date-btn" data-days="0" ${hasTask?'':'disabled'}>Bugün</button>
+              <button type="button" class="followup-date-btn" data-days="1" ${hasTask?'':'disabled'}>Yarın</button>
+              <button type="button" class="followup-date-btn" data-days="3" ${hasTask?'':'disabled'}>+3 gün</button>
+              <button type="button" class="followup-date-btn" data-days="7" ${hasTask?'':'disabled'}>+7 gün</button>
+              <button type="button" class="followup-date-btn clear" data-days="clear" ${hasTask?'':'disabled'}>Temizle</button>
+            </div>
+          </div>
+          <div class="followup-status-field">
+            <label>Takip durumu<select class="input response-input followup-status" data-field="followUpStatus" ${hasTask?'':'disabled'}><option value="Bekleniyor" ${status==='Bekleniyor'?'selected':''}>Bekleniyor</option><option value="Tamamlandı" ${status==='Tamamlandı'?'selected':''}>Tamamlandı</option><option value="İptal" ${status==='İptal'?'selected':''}>İptal</option></select></label>
+            ${hasTask?`<button type="button" class="followup-action-btn ${status==='Tamamlandı'?'reopen':'complete'}" data-status="${status==='Tamamlandı'?'Bekleniyor':'Tamamlandı'}">${status==='Tamamlandı'?'↻ Yeniden aç':'✓ Tamamla'}</button>`:''}
+          </div>
         </div>
-        <div class="followup-info ${hasTask?taskClass+'':'hidden'}">${hasTask?`${taskLabel}${r.reminderDate?` • Hatırlatma: ${formatDate(r.reminderDate)}`:''}${r.completedAt?` • Tamamlandı: ${new Date(r.completedAt).toLocaleString('tr-TR')}`:''}`:''}</div>
+        <div class="followup-info ${hasTask?taskClass+'':'hidden'}">${hasTask?`${taskLabel}${r.reminderDate?` • Hatırlatma: ${formatDate(r.reminderDate)}`:' • Hatırlatma tarihi girilmedi'}${r.followUpCreatedAt?` • Açılış: ${new Date(r.followUpCreatedAt).toLocaleDateString('tr-TR')}`:''}${r.completedAt?` • Tamamlandı: ${new Date(r.completedAt).toLocaleString('tr-TR')}`:''}`:''}</div>
       </div>
-      <div class="save-state">${r.updatedAt?'Son kayıt: '+new Date(r.updatedAt).toLocaleString('tr-TR'):'Henüz kayıt yok'}</div>
+      <div class="save-state"><span class="save-dot"></span>${r.updatedAt?'Otomatik kayıt • '+new Date(r.updatedAt).toLocaleString('tr-TR'):'Otomatik kayıt açık • Henüz veri girilmedi'}</div>
     </article>`;
   }
 
@@ -286,15 +339,40 @@
         refreshResultButtons(card,inp.value);
         scheduleResponseSave(card,inp,true);
       }));
+      card.querySelectorAll('.followup-date-btn').forEach(btn=>btn.addEventListener('click',()=>{
+        const inp=card.querySelector('[data-field="reminderDate"]');
+        if(inp.disabled) return;
+        inp.value=btn.dataset.days==='clear' ? '' : addDaysDateString(Number(btn.dataset.days||0));
+        scheduleResponseSave(card,inp,true);
+      }));
+      card.querySelectorAll('.followup-action-btn').forEach(btn=>btn.addEventListener('click',()=>{
+        const inp=card.querySelector('[data-field="followUpStatus"]');
+        if(inp.disabled) return;
+        inp.value=btn.dataset.status||'Bekleniyor';
+        scheduleResponseSave(card,inp,true);
+      }));
     });
   }
   function refreshResultButtons(card,result){
     card.querySelectorAll('.result-btn,.result-clear').forEach(btn=>btn.classList.toggle('active',(btn.dataset.result||'')===result));
+    [...card.classList].filter(c=>c.startsWith('result-')).forEach(c=>card.classList.remove(c));
+    const cls=result ? 'result-'+result.replace(/[^a-zA-Z0-9ÇĞİÖŞÜçğıöşü]/g,'-') : 'result-unassessed';
+    card.classList.add(cls);
+    const pill=card.querySelector('.aad-result-pill');
+    if(pill){
+      pill.className='aad-result-pill '+cls;
+      const icon=({Uygun:'✓',Bulgu:'!',Gözlem:'•',Uygulanamaz:'—'})[result]||'○';
+      pill.innerHTML=`<b>${icon}</b>${esc(result||'Değerlendirilmedi')}`;
+    }
   }
   const saveTimers={};
   function scheduleResponseSave(card,inp,immediate=false){
     const key=card.dataset.key; const a=currentAudit(); const r=getResponse(a,key); const field=inp.dataset.field; const previousText=r.followUpText||'';
     r[field]=inp.value; r.updatedAt=nowIso();
+    // İnsan faktörleri / veri güvenliği: her veri girişi önce aynı anda yerel yedeğe alınır.
+    // Firebase yazımı kısa debounce sonrasında yapılır; sekme aniden kapansa dahi son giriş localStorage'da kalır.
+    saveLocal();
+    if(state.firebase && state.user && !state.offlineMode) markPendingSync(a.id);
 
     if(field==='result') inp.dataset.value=inp.value;
     if(field==='followUpText'){
@@ -312,7 +390,7 @@
 
     refreshCardFollowUp(card,r);
     refreshQuestionStats(card.closest('.question-block'));
-    card.querySelector('.save-state').textContent='Kaydediliyor…';
+    card.querySelector('.save-state').innerHTML='<span class="save-dot saving"></span>Yerel yedek alındı • Firebase’e kaydediliyor…';
     setSaveStatus('saving');
     updateKpis(); renderFollowUpPanel();
     clearTimeout(saveTimers[key]);
@@ -320,15 +398,15 @@
       try{
         await persistAudit(a);
         renderAuditList();
-        card.querySelector('.save-state').textContent='Kaydedildi: '+new Date().toLocaleString('tr-TR');
+        card.querySelector('.save-state').innerHTML='<span class="save-dot saved"></span>Firebase’e kaydedildi • '+new Date().toLocaleString('tr-TR');
         setSaveStatus(state.offlineMode?'local':'saved');
       }catch(err){
         console.error(err);
-        card.querySelector('.save-state').textContent='Kayıt hatası — tekrar deneyin';
+        card.querySelector('.save-state').innerHTML='<span class="save-dot error"></span>Firebase kayıt hatası • Yerel yedek korunuyor';
         setSaveStatus('error');
         toast('Kayıt sırasında hata oluştu. İnternet/Firebase bağlantısını kontrol edin.');
       }
-    }, immediate?50:500);
+    }, immediate?60:400);
   }
 
   function refreshQuestionStats(block){
@@ -338,9 +416,11 @@
     const a=currentAudit(); if(!a || !items.length) return;
     const assessedCount=items.filter(i=>getResponse(a,i.htmlKey).result).length;
     const findingCount=items.filter(i=>getResponse(a,i.htmlKey).result==='Bulgu').length;
-    const followCount=items.filter(i=>['pending','overdue','today'].includes(followUpTiming(getResponse(a,i.htmlKey)))).length;
+    const followCount=items.filter(i=>isOpenFollowUpTiming(followUpTiming(getResponse(a,i.htmlKey)))).length;
     const stats=block.querySelector('.question-stats'); if(!stats) return;
-    stats.innerHTML=`<strong>${assessedCount}/${items.length}</strong><span>değerlendirildi</span>${findingCount?`<span class="qstat danger">${findingCount} bulgu</span>`:''}${followCount?`<span class="qstat warn">${followCount} takip</span>`:''}`;
+    const body=block.querySelector('.question-body');
+    stats.innerHTML=`<strong>${assessedCount}/${items.length}</strong><span>değerlendirildi</span>${findingCount?`<span class="qstat danger">${findingCount} bulgu</span>`:''}${followCount?`<span class="qstat warn">${followCount} takip</span>`:''}<span class="question-chevron">${body && !body.classList.contains('hidden')?'⌃':'⌄'}</span>`;
+    const progress=block.querySelector('.question-progress-track span'); if(progress) progress.style.width=Math.round((assessedCount/items.length)*100)+'%';
   }
 
   function refreshCardFollowUp(card,r){
@@ -348,6 +428,7 @@
     const box=card.querySelector('.followup-box'); const dateInput=card.querySelector('[data-field="reminderDate"]'); const statusSelect=card.querySelector('[data-field="followUpStatus"]');
     box.classList.toggle('active',active);
     dateInput.disabled=!active; statusSelect.disabled=!active;
+    card.querySelectorAll('.followup-date-btn').forEach(btn=>btn.disabled=!active);
     if(active){ statusSelect.value=effectiveFollowUpStatus(r); }
     else { dateInput.value=''; statusSelect.value='Bekleniyor'; }
     card.classList.toggle('has-followup',active && timing!=='overdue');
@@ -358,23 +439,33 @@
     }
     const info=card.querySelector('.followup-info');
     info.className=`followup-info ${active?timing:'hidden'}`;
-    info.textContent=active ? `${label}${r.reminderDate?' • Hatırlatma: '+formatDate(r.reminderDate):''}${r.completedAt?' • Tamamlandı: '+new Date(r.completedAt).toLocaleString('tr-TR'):''}` : '';
+    info.textContent=active ? `${label}${r.reminderDate?' • Hatırlatma: '+formatDate(r.reminderDate):' • Hatırlatma tarihi girilmedi'}${r.followUpCreatedAt?' • Açılış: '+new Date(r.followUpCreatedAt).toLocaleDateString('tr-TR'):''}${r.completedAt?' • Tamamlandı: '+new Date(r.completedAt).toLocaleString('tr-TR'):''}` : '';
+    const statusField=card.querySelector('.followup-status-field');
+    if(statusField){
+      const oldAction=statusField.querySelector('.followup-action-btn'); if(oldAction) oldAction.remove();
+      if(active){ const btn=document.createElement('button'); btn.type='button'; btn.className=`followup-action-btn ${effectiveFollowUpStatus(r)==='Tamamlandı'?'reopen':'complete'}`; btn.dataset.status=effectiveFollowUpStatus(r)==='Tamamlandı'?'Bekleniyor':'Tamamlandı'; btn.textContent=effectiveFollowUpStatus(r)==='Tamamlandı'?'↻ Yeniden aç':'✓ Tamamla'; btn.addEventListener('click',()=>{ statusSelect.value=btn.dataset.status; scheduleResponseSave(card,statusSelect,true); }); statusField.appendChild(btn); }
+    }
   }
 
   function updateKpis(){
-    const a=currentAudit(); let assessed=0, findings=0, obs=0, remote=0, onsite=0, pending=0, overdue=0;
+    const a=currentAudit(); let assessed=0, findings=0, obs=0, remote=0, onsite=0, pending=0, overdue=0, undated=0;
     criteria.forEach(i=>{
       const r=getResponse(a,i.htmlKey);
       if(r.result){assessed++; if(i.auditType==='Uzaktan')remote++; else onsite++;}
       if(r.result==='Bulgu')findings++; if(r.result==='Gözlem')obs++;
       const timing=followUpTiming(r);
-      if(['pending','overdue','today'].includes(timing))pending++;
+      if(isOpenFollowUpTiming(timing))pending++;
       if(timing==='overdue')overdue++;
+      if(timing==='undated')undated++;
     });
     els.kpiProgress.textContent=`${assessed}/${criteria.length}`; els.kpiFindings.textContent=findings; els.kpiObservations.textContent=obs;
-    els.kpiRemote.textContent=`${remote}/23`; els.kpiOnsite.textContent=`${onsite}/35`; els.kpiPending.textContent=pending; els.kpiOverdue.textContent=overdue;
-    els.kpiOverdue.closest('.kpi').classList.toggle('has-value',overdue>0);
-    els.kpiPending.closest('.kpi').classList.toggle('has-value',pending>0);
+    els.kpiRemote.textContent=`${remote}/23`; els.kpiOnsite.textContent=`${onsite}/35`; els.kpiPending.textContent=pending; els.kpiOverdue.textContent=overdue; els.kpiUndated.textContent=undated;
+    const pct=Math.round((assessed/criteria.length)*100);
+    if(els.auditProgressBar) els.auditProgressBar.style.width=pct+'%';
+    if(els.auditProgressPercent) els.auditProgressPercent.textContent='%'+pct;
+    els.kpiOverdue.closest('.overview-metric')?.classList.toggle('has-value',overdue>0);
+    els.kpiPending.closest('.overview-metric')?.classList.toggle('has-value',pending>0);
+    els.kpiUndated.closest('.overview-metric')?.classList.toggle('has-value',undated>0);
   }
 
   function renderFollowUpPanel(){
@@ -382,20 +473,42 @@
     const rows=[];
     criteria.forEach(i=>{
       const r=getResponse(a,i.htmlKey); const timing=followUpTiming(r);
-      if(['pending','overdue','today'].includes(timing)) rows.push({i,r,timing});
+      if(isOpenFollowUpTiming(timing)) rows.push({i,r,timing});
     });
+    const order={overdue:0,today:1,pending:2,undated:3};
     rows.sort((x,y)=>{
+      const priority=(order[x.timing]??9)-(order[y.timing]??9); if(priority) return priority;
       const xd=x.r.reminderDate||'9999-12-31', yd=y.r.reminderDate||'9999-12-31';
       return xd.localeCompare(yd) || x.i.shortCode.localeCompare(y.i.shortCode,'tr');
     });
+    const overdueCount=rows.filter(x=>x.timing==='overdue').length;
+    const todayCount=rows.filter(x=>x.timing==='today').length;
+    const undatedCount=rows.filter(x=>x.timing==='undated').length;
     els.followUpPanel.classList.toggle('hidden',rows.length===0);
-    els.followUpList.innerHTML=rows.map(({i,r,timing})=>`<tr class="followup-row" data-key="${esc(i.htmlKey)}">
+    if(els.followUpAttention){
+      const bits=[];
+      if(overdueCount) bits.push(`${overdueCount} gecikmiş`);
+      if(todayCount) bits.push(`${todayCount} bugün`);
+      if(undatedCount) bits.push(`${undatedCount} tarihi yok`);
+      els.followUpAttention.textContent=bits.length ? '• '+bits.join(' • ') : '';
+      els.followUpAttention.className='followup-attention'+(overdueCount?' danger':undatedCount?' warn':'');
+    }
+    els.followUpList.innerHTML=rows.map(({i,r,timing})=>`<tr class="followup-row ${timing}" data-key="${esc(i.htmlKey)}">
       <td><strong>${esc(i.shortCode)} / ${esc(i.aadCode)}</strong></td>
-      <td>${esc(r.followUpText)}</td>
-      <td>${formatDate(r.reminderDate)}</td>
+      <td><div class="followup-task-text">${esc(r.followUpText)}</div>${r.followUpCreatedAt?`<small class="followup-created">Açılış: ${new Date(r.followUpCreatedAt).toLocaleDateString('tr-TR')}</small>`:''}</td>
+      <td>${r.reminderDate?formatDate(r.reminderDate):'<span class="followup-no-date">Tarih yok</span>'}</td>
       <td><span class="followup-badge ${timing}">${esc(followUpLabel(r))}</span></td>
+      <td><button type="button" class="followup-table-action" data-key="${esc(i.htmlKey)}">✓ Tamamla</button></td>
     </tr>`).join('');
     els.followUpList.querySelectorAll('.followup-row').forEach(row=>row.onclick=()=>goToAad(row.dataset.key));
+    els.followUpList.querySelectorAll('.followup-table-action').forEach(btn=>btn.onclick=async(e)=>{
+      e.stopPropagation();
+      const key=btn.dataset.key; const r=getResponse(a,key);
+      r.followUpStatus='Tamamlandı'; r.completedAt=r.completedAt||nowIso(); r.updatedAt=nowIso();
+      btn.disabled=true; btn.textContent='Kaydediliyor…'; setSaveStatus('saving');
+      try{ await persistAudit(a); setSaveStatus(state.offlineMode?'local':'saved'); renderAuditList(); renderFollowUpPanel(); renderQuestions(); updateKpis(); toast('Takip tamamlandı.'); }
+      catch(err){ console.error(err); setSaveStatus('error'); btn.disabled=false; btn.textContent='✓ Tamamla'; toast('Takip kaydedilemedi.'); }
+    });
   }
 
   function goToNextUnassessed(){
@@ -453,4 +566,7 @@
     if(state.firebase) await state.firebase.auth.signOut();
   };
   initFirebase();
+
+  // Tarayıcı/sekmeyi kapatma anında son bellek durumunu senkron olarak yerel yedeğe yaz.
+  window.addEventListener('beforeunload',()=>{ try{ saveLocal(); }catch{} });
 })();
