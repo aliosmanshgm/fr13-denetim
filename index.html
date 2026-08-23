@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>FR.13 Emniyet Olayları Denetimi</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+</head>
+<body>
+  <div id="loginOverlay" class="login-overlay">
+    <div class="login-box">
+      <div class="eyebrow">SHGM • EYUİK</div>
+      <h2>FR.13 Denetim</h2>
+      <p>Firebase kaydına erişmek için yetkili kullanıcı bilgilerinizi giriniz.</p>
+      <input type="email" id="loginEmail" class="input login-input" placeholder="E-posta adresi" autocomplete="username" />
+      <input type="password" id="loginPass" class="input login-input" placeholder="Şifre" autocomplete="current-password" />
+      <button type="button" id="loginBtn" class="btn login-btn">Giriş Yap</button>
+      <button type="button" id="offlineBtn" class="btn secondary login-btn">Şifresiz / Çevrimdışı Devam Et</button>
+      <p id="loginError" class="login-error hidden"></p>
+      <div id="firebaseConfigHint" class="login-hint hidden">Firebase yapılandırması henüz girilmedi. Çevrimdışı mod kullanılabilir.</div>
+    </div>
+  </div>
+
+  <header id="appHeader" class="app-header hidden">
+    <div>
+      <div class="eyebrow">SHGM • EYUİK</div>
+      <h1>FR.13 Emniyet Olayları Denetimi</h1>
+      <p>Denetim bazlı AAD değerlendirme, not ve beklenen husus takip ekranı</p>
+    </div>
+    <div class="header-actions">
+      <span id="storageBadge" class="badge">Bağlantı bekleniyor</span>
+      <span id="currentUserLabel" class="user-label"></span>
+      <button id="signOutBtn" class="btn secondary">Çıkış</button>
+    </div>
+  </header>
+
+  <main id="appShell" class="shell hidden">
+    <aside class="sidebar">
+      <section class="panel">
+        <div class="panel-title-row">
+          <h2>Denetimler</h2>
+          <button id="newAuditBtn" class="btn small">+ Yeni</button>
+        </div>
+        <input id="auditSearch" class="input" placeholder="Denetim / işletme ara" />
+        <div id="auditList" class="audit-list"></div>
+      </section>
+    </aside>
+
+    <section class="content">
+      <div id="emptyState" class="panel empty-state">
+        <h2>Bir denetim seçin veya yeni denetim oluşturun</h2>
+        <p>FR.13 kontrol formundaki 58 AAD denetim özelinde ayrı ayrı değerlendirilir ve kaydedilir.</p>
+      </div>
+
+      <div id="auditWorkspace" class="hidden">
+        <section class="panel audit-summary">
+          <div class="summary-head">
+            <div>
+              <div class="eyebrow" id="auditNoLabel">DENETİM</div>
+              <h2 id="auditTitle">-</h2>
+              <p id="auditMeta">-</p>
+            </div>
+            <div class="summary-actions">
+              <button id="editAuditBtn" class="btn secondary">Denetim bilgileri</button>
+              <button id="exportBtn" class="btn secondary">JSON dışa aktar</button>
+              <button id="printBtn" class="btn secondary">Yazdır</button>
+            </div>
+          </div>
+          <div class="kpis">
+            <div class="kpi"><strong id="kpiProgress">0/58</strong><span>Değerlendirilen</span></div>
+            <div class="kpi"><strong id="kpiFindings">0</strong><span>Bulgu</span></div>
+            <div class="kpi"><strong id="kpiObservations">0</strong><span>Gözlem</span></div>
+            <div class="kpi"><strong id="kpiRemote">0/23</strong><span>Uzaktan</span></div>
+            <div class="kpi"><strong id="kpiOnsite">0/35</strong><span>Yerinde</span></div>
+            <div class="kpi followup"><strong id="kpiPending">0</strong><span>Bekleyen Husus</span></div>
+            <div class="kpi overdue"><strong id="kpiOverdue">0</strong><span>Gecikmiş</span></div>
+          </div>
+        </section>
+
+        <section id="followUpPanel" class="panel followup-panel hidden">
+          <div class="panel-title-row followup-title-row">
+            <div>
+              <h2>Bekleyen İşler</h2>
+              <p>AAD'lerde talep edilip henüz tamamlanmamış hususlar</p>
+            </div>
+            <button id="showAllPendingBtn" class="btn secondary small">Takip bekleyenleri göster</button>
+          </div>
+          <div class="followup-table-wrap">
+            <table class="followup-table">
+              <thead><tr><th>AAD</th><th>Beklenen Husus</th><th>Hatırlatma</th><th>Durum</th></tr></thead>
+              <tbody id="followUpList"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel toolbar">
+          <input id="criterionSearch" class="input grow" placeholder="Soru, AAD, kriter, mevzuat, not veya takip hususu ara" />
+          <select id="typeFilter" class="input compact">
+            <option value="all">Tüm denetim türleri</option>
+            <option value="Uzaktan">Uzaktan</option>
+            <option value="Yerinde">Yerinde</option>
+          </select>
+          <select id="resultFilter" class="input compact">
+            <option value="all">Tüm sonuçlar</option>
+            <option value="unassessed">Değerlendirilmedi</option>
+            <option value="Bulgu">Sadece bulgular</option>
+            <option value="Gözlem">Sadece gözlemler</option>
+            <option value="Uygun">Sadece uygunlar</option>
+            <option value="Uygulanamaz">Uygulanamaz</option>
+          </select>
+          <select id="followUpFilter" class="input compact">
+            <option value="all">Tüm takip durumları</option>
+            <option value="pending">Takip bekleyenler</option>
+            <option value="overdue">Gecikmiş</option>
+            <option value="today">Bugün kontrol et</option>
+            <option value="completed">Tamamlanan takipler</option>
+          </select>
+          <button id="expandAllBtn" class="btn secondary">Tümünü aç</button>
+        </section>
+
+        <div id="questions"></div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="auditDialog">
+    <form id="auditForm" method="dialog" class="dialog-form">
+      <div class="dialog-head">
+        <h2 id="auditDialogTitle">Yeni denetim</h2>
+        <button type="button" class="icon-btn cancel-dialog" aria-label="Kapat">×</button>
+      </div>
+      <input type="hidden" id="auditId" />
+      <label>İşletme / Kuruluş adı<input id="organizationName" class="input" required /></label>
+      <div class="two-col">
+        <label>Denetim no<input id="auditNo" class="input" placeholder="örn. 2026-08-24/26" /></label>
+        <label>Durum<select id="auditStatus" class="input"><option>Taslak</option><option>Devam Ediyor</option><option>Kapatıldı</option></select></label>
+      </div>
+      <div class="two-col">
+        <label>Başlangıç tarihi<input id="auditStartDate" type="date" class="input" /></label>
+        <label>Bitiş tarihi<input id="auditEndDate" type="date" class="input" /></label>
+      </div>
+      <label>Baş denetçi<input id="leadAuditor" class="input" /></label>
+      <label>Denetim ekibi<input id="auditors" class="input" placeholder="Virgülle ayırabilirsiniz" /></label>
+      <label>Genel denetim notu<textarea id="auditGeneralNote" class="input" rows="3"></textarea></label>
+      <div class="dialog-actions">
+        <button type="button" class="btn secondary cancel-dialog">Vazgeç</button>
+        <button id="saveAuditBtn" value="default" class="btn">Kaydet</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="fr13-data.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
