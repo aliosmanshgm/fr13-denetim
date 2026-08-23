@@ -12,8 +12,8 @@
     auditList:$('auditList'), auditSearch:$('auditSearch'), newAuditBtn:$('newAuditBtn'),
     emptyState:$('emptyState'), workspace:$('auditWorkspace'), auditNoLabel:$('auditNoLabel'), auditTitle:$('auditTitle'), auditMeta:$('auditMeta'),
     editAuditBtn:$('editAuditBtn'), exportBtn:$('exportBtn'), printBtn:$('printBtn'),
-    kpiProgress:$('kpiProgress'), kpiFindings:$('kpiFindings'), kpiObservations:$('kpiObservations'), kpiRemote:$('kpiRemote'), kpiOnsite:$('kpiOnsite'),
-    kpiPending:$('kpiPending'), kpiOverdue:$('kpiOverdue'), kpiUndated:$('kpiUndated'), auditProgressBar:$('auditProgressBar'), auditProgressPercent:$('auditProgressPercent'), followUpPanel:$('followUpPanel'), followUpList:$('followUpList'), followUpAttention:$('followUpAttention'), showAllPendingBtn:$('showAllPendingBtn'),
+    kpiProgress:$('kpiProgress'), kpiCompliant:$('kpiCompliant'), kpiNoncompliant:$('kpiNoncompliant'), kpiNA:$('kpiNA'), kpiNotAsked:$('kpiNotAsked'), kpiRemote:$('kpiRemote'), kpiOnsite:$('kpiOnsite'),
+    kpiPending:$('kpiPending'), kpiOverdue:$('kpiOverdue'), kpiUndated:$('kpiUndated'), auditProgressBar:$('auditProgressBar'), auditProgressPercent:$('auditProgressPercent'), findingSummaryPanel:$('findingSummaryPanel'), findingSummaryList:$('findingSummaryList'), findingSummaryAttention:$('findingSummaryAttention'), findingLevel1Count:$('findingLevel1Count'), findingLevel2Count:$('findingLevel2Count'), findingObservationCount:$('findingObservationCount'), showNoncompliantBtn:$('showNoncompliantBtn'), followUpPanel:$('followUpPanel'), followUpList:$('followUpList'), followUpAttention:$('followUpAttention'), showAllPendingBtn:$('showAllPendingBtn'),
     criterionSearch:$('criterionSearch'), typeFilter:$('typeFilter'), resultFilter:$('resultFilter'), followUpFilter:$('followUpFilter'), nextUnassessedBtn:$('nextUnassessedBtn'), expandAllBtn:$('expandAllBtn'), questions:$('questions'),
     auditDialog:$('auditDialog'), auditForm:$('auditForm'), auditDialogTitle:$('auditDialogTitle'), auditId:$('auditId'), organizationName:$('organizationName'), auditNo:$('auditNo'),
     auditStatus:$('auditStatus'), auditStartDate:$('auditStartDate'), auditEndDate:$('auditEndDate'), leadAuditor:$('leadAuditor'), auditors:$('auditors'), auditGeneralNote:$('auditGeneralNote'), deleteAuditBtn:$('deleteAuditBtn'),
@@ -47,11 +47,16 @@
   }
   function currentAudit(){ return state.audits.find(a=>a.id===state.activeAuditId); }
   function blankResponse(){
-    return {result:'', evidenceRefs:'', auditorNote:'', followUpText:'', followUpStatus:'', reminderDate:'', followUpCreatedAt:null, completedAt:null, updatedAt:null};
+    return {result:'', evidenceRefs:'', auditorNote:'', findingLevel:'', predefinedFinding:'', findingDescription:'', followUpText:'', followUpStatus:'', reminderDate:'', followUpCreatedAt:null, completedAt:null, updatedAt:null};
   }
   function normalizeResponse(r={}){
+    const legacyResultMap={Bulgu:'Uygun Değil',Gözlem:'Sorulmadı',Uygulanamaz:'N/A'};
+    const normalizedResult=legacyResultMap[r.result] || r.result || '';
     return {
-      ...blankResponse(), ...r,
+      ...blankResponse(), ...r, result:normalizedResult,
+      findingLevel: r.findingLevel || r.finding?.level || '',
+      predefinedFinding: r.predefinedFinding || r.finding?.predefinedFinding || '',
+      findingDescription: r.findingDescription || r.finding?.description || '',
       followUpText: r.followUpText || r.followUp?.text || '',
       followUpStatus: r.followUpStatus || r.followUp?.status || '',
       reminderDate: r.reminderDate || r.followUp?.reminderDate || '',
@@ -187,6 +192,18 @@
     if(!a.responses[key]) a.responses[key]=blankResponse();
     return a.responses[key];
   }
+  function isNoncompliant(r){ return r.result==='Uygun Değil'; }
+  function isFindingComplete(r){ return isNoncompliant(r) && !!String(r.findingLevel||'').trim() && !!String(r.predefinedFinding||'').trim() && !!String(r.findingDescription||'').trim(); }
+  function isAssessmentComplete(r){ return !!r.result && (!isNoncompliant(r) || isFindingComplete(r)); }
+  function findingMissingFields(r){
+    if(!isNoncompliant(r)) return [];
+    const missing=[];
+    if(!String(r.findingLevel||'').trim()) missing.push('bulgu seviyesi');
+    if(!String(r.predefinedFinding||'').trim()) missing.push('ön tanımlı bulgu');
+    if(!String(r.findingDescription||'').trim()) missing.push('bulgu açıklaması');
+    return missing;
+  }
+  function resultIcon(result){ return ({'Uygun':'✓','Uygun Değil':'!','N/A':'—','Sorulmadı':'?'})[result]||'○'; }
   function hasFollowUp(r){ return !!String(r.followUpText||'').trim(); }
   function effectiveFollowUpStatus(r){ return hasFollowUp(r) ? (r.followUpStatus || 'Bekleniyor') : ''; }
   function followUpTiming(r){
@@ -236,15 +253,16 @@
     const a=currentAudit(); els.emptyState.classList.toggle('hidden',!!a); els.workspace.classList.toggle('hidden',!a); if(!a)return;
     els.auditNoLabel.textContent=a.auditNo||'DENETİM'; els.auditTitle.textContent=a.organizationName||'-';
     els.auditMeta.textContent=[a.startDate&&('Başlangıç: '+formatDate(a.startDate)),a.endDate&&('Bitiş: '+formatDate(a.endDate)),a.leadAuditor&&('Baş denetçi: '+a.leadAuditor),a.status].filter(Boolean).join(' • ');
-    renderFollowUpPanel(); renderQuestions(); updateKpis();
+    renderFindingSummaryPanel(); renderFollowUpPanel(); renderQuestions(); updateKpis();
   }
 
   function matchesFilters(item,r){
     const q=els.criterionSearch.value.trim().toLocaleLowerCase('tr-TR');
     if(els.typeFilter.value!=='all' && item.auditType!==els.typeFilter.value)return false;
     const rf=els.resultFilter.value;
-    if(rf==='unassessed' && r.result)return false;
-    if(rf!=='all' && rf!=='unassessed' && r.result!==rf)return false;
+    if(rf==='unassessed' && isAssessmentComplete(r))return false;
+    if(rf==='incomplete-finding' && !(isNoncompliant(r) && !isFindingComplete(r)))return false;
+    if(rf!=='all' && rf!=='unassessed' && rf!=='incomplete-finding' && r.result!==rf)return false;
     const ff=els.followUpFilter.value; const timing=followUpTiming(r);
     if(ff==='pending' && !isOpenFollowUpTiming(timing)) return false;
     if(ff==='overdue' && timing!=='overdue') return false;
@@ -252,7 +270,7 @@
     if(ff==='undated' && timing!=='undated') return false;
     if(ff==='completed' && timing!=='completed') return false;
     if(q){
-      const hay=[item.shortCode,item.aadCode,item.question,item.atomicCriterion,item.reference,item.auditorGuidance,r.evidenceRefs,r.auditorNote,r.followUpText].join(' ').toLocaleLowerCase('tr-TR');
+      const hay=[item.shortCode,item.aadCode,item.question,item.atomicCriterion,item.reference,item.auditorGuidance,r.evidenceRefs,r.auditorNote,r.findingLevel,r.predefinedFinding,r.findingDescription,r.followUpText].join(' ').toLocaleLowerCase('tr-TR');
       if(!hay.includes(q)) return false;
     }
     return true;
@@ -264,11 +282,11 @@
     for(const [code,items] of groups){
       const shown=items.filter(i=>matchesFilters(i,getResponse(a,i.htmlKey))); if(!shown.length)continue;
       const first=items[0]; const open=state.expanded.has(code) || els.criterionSearch.value || els.typeFilter.value!=='all' || els.resultFilter.value!=='all' || els.followUpFilter.value!=='all';
-      const assessedCount=items.filter(i=>getResponse(a,i.htmlKey).result).length;
-      const findingCount=items.filter(i=>getResponse(a,i.htmlKey).result==='Bulgu').length;
+      const assessedCount=items.filter(i=>isAssessmentComplete(getResponse(a,i.htmlKey))).length;
+      const findingCount=items.filter(i=>getResponse(a,i.htmlKey).result==='Uygun Değil').length;
       const followCount=items.filter(i=>isOpenFollowUpTiming(followUpTiming(getResponse(a,i.htmlKey)))).length;
       const questionPct=Math.round((assessedCount/items.length)*100);
-      html+=`<section class="question-block" data-code="${esc(code)}"><div class="question-head"><div class="question-code">${esc(first.shortCode)}</div><div class="question-main"><div class="question-text">${esc(first.question)}</div><div class="question-ref">${esc(first.reference)}</div><div class="question-progress-track"><span style="width:${questionPct}%"></span></div></div><div class="question-stats"><strong>${assessedCount}/${items.length}</strong><span>değerlendirildi</span>${findingCount?`<span class="qstat danger">${findingCount} bulgu</span>`:''}${followCount?`<span class="qstat warn">${followCount} takip</span>`:''}${shown.length!==items.length?`<span class="qstat muted">${shown.length} gösteriliyor</span>`:''}<span class="question-chevron">${open?'⌃':'⌄'}</span></div></div><div class="question-body ${open?'':'hidden'}">${shown.map(i=>renderAad(i,getResponse(a,i.htmlKey))).join('')}</div></section>`;
+      html+=`<section class="question-block" data-code="${esc(code)}"><div class="question-head"><div class="question-code">${esc(first.shortCode)}</div><div class="question-main"><div class="question-text">${esc(first.question)}</div><div class="question-ref">${esc(first.reference)}</div><div class="question-progress-track"><span style="width:${questionPct}%"></span></div></div><div class="question-stats"><strong>${assessedCount}/${items.length}</strong><span>değerlendirildi</span>${findingCount?`<span class="qstat danger">${findingCount} uygun değil</span>`:''}${followCount?`<span class="qstat warn">${followCount} takip</span>`:''}${shown.length!==items.length?`<span class="qstat muted">${shown.length} gösteriliyor</span>`:''}<span class="question-chevron">${open?'⌃':'⌄'}</span></div></div><div class="question-body ${open?'':'hidden'}">${shown.map(i=>renderAad(i,getResponse(a,i.htmlKey))).join('')}</div></section>`;
     }
     els.questions.innerHTML=html || '<div class="panel no-results">Filtreye uyan kriter bulunamadı.</div>';
     els.questions.querySelectorAll('.question-head').forEach(h=>h.onclick=()=>{
@@ -283,7 +301,7 @@
     const status=effectiveFollowUpStatus(r);
     const resultClass=result ? 'result-'+result.replace(/[^a-zA-Z0-9ÇĞİÖŞÜçğıöşü]/g,'-') : 'result-unassessed';
     const resultLabel=result||'Değerlendirilmedi';
-    const resultIcon=({Uygun:'✓',Bulgu:'!',Gözlem:'•',Uygulanamaz:'—'})[result]||'○';
+    const resultIconValue=resultIcon(result);
     const expanded=state.expandedAads.has(i.htmlKey);
     const hasEvidence=!!String(r.evidenceRefs||'').trim();
     const hasNote=!!String(r.auditorNote||'').trim();
@@ -297,7 +315,7 @@
         </div>
         <div class="aad-accordion-status">
           ${hasTask?`<span class="followup-badge ${taskClass}">${esc(taskLabel)}</span>`:''}
-          <span class="aad-result-pill ${resultClass}"><b>${resultIcon}</b>${esc(resultLabel)}</span>
+          <span class="aad-result-pill ${resultClass}"><b>${resultIconValue}</b>${esc(resultLabel)}</span>${isNoncompliant(r)&&r.findingLevel?`<span class="finding-level-badge level-${esc(r.findingLevel.replace(/\s+/g,'-'))}">${esc(r.findingLevel)}</span>`:''}
           <span class="aad-save-summary ${r.updatedAt?'saved':'empty'}">${saveLabel}</span>
           <span class="aad-chevron" aria-hidden="true">${expanded?'⌃':'⌄'}</span>
         </div>
@@ -312,12 +330,29 @@
             <input type="hidden" class="response-input result-select" data-field="result" data-value="${esc(result)}" value="${esc(result)}" />
             <div class="result-buttons" role="group" aria-label="Değerlendirme sonucu">
               <button type="button" class="result-btn good ${result==='Uygun'?'active':''}" data-result="Uygun">Uygun</button>
-              <button type="button" class="result-btn danger ${result==='Bulgu'?'active':''}" data-result="Bulgu">Bulgu</button>
-              <button type="button" class="result-btn warn ${result==='Gözlem'?'active':''}" data-result="Gözlem">Gözlem</button>
-              <button type="button" class="result-btn neutral ${result==='Uygulanamaz'?'active':''}" data-result="Uygulanamaz">Uygulanamaz</button>
+              <button type="button" class="result-btn danger ${result==='Uygun Değil'?'active':''}" data-result="Uygun Değil">Uygun Değil</button>
+              <button type="button" class="result-btn neutral ${result==='N/A'?'active':''}" data-result="N/A">N/A</button>
+              <button type="button" class="result-btn notasked ${result==='Sorulmadı'?'active':''}" data-result="Sorulmadı">Sorulmadı</button>
               <button type="button" class="result-clear ${!result?'active':''}" data-result="" title="Değerlendirmeyi temizle">×</button>
             </div>
           </label>
+        </div>
+        <div class="finding-detail-box ${isNoncompliant(r)?'active':'hidden'} ${isNoncompliant(r)&&!isFindingComplete(r)?'incomplete':''}">
+          <div class="finding-detail-title"><div><span>Uygun Değil / Bulgu Bilgileri</span><small>Uygun Değil değerlendirmesinin tamamlanması için seviye, ön tanımlı bulgu ve bulgu açıklaması zorunludur.</small></div><span class="required-badge">ZORUNLU</span></div>
+          <div class="finding-level-field">
+            <label>Bulgu seviyesi *</label>
+            <input type="hidden" class="response-input finding-level-input" data-field="findingLevel" value="${esc(r.findingLevel||'')}" />
+            <div class="finding-level-buttons" role="group" aria-label="Bulgu seviyesi">
+              <button type="button" class="finding-level-btn level1 ${r.findingLevel==='Seviye 1'?'active':''}" data-level="Seviye 1">Seviye 1</button>
+              <button type="button" class="finding-level-btn level2 ${r.findingLevel==='Seviye 2'?'active':''}" data-level="Seviye 2">Seviye 2</button>
+              <button type="button" class="finding-level-btn observation ${r.findingLevel==='Gözlem'?'active':''}" data-level="Gözlem">Gözlem</button>
+            </div>
+          </div>
+          <div class="finding-text-grid">
+            <label>Ön Tanımlı Bulgu *<textarea class="input response-input finding-required" data-field="predefinedFinding" required placeholder="Genel, benzersiz ve işletmeden bağımsız ön tanımlı bulgu metni">${esc(r.predefinedFinding||'')}</textarea></label>
+            <label>Bulgu Açıklaması *<textarea class="input response-input finding-required" data-field="findingDescription" required placeholder="Denetimde doğrulanan somut uygunsuzluğu açıklayın">${esc(r.findingDescription||'')}</textarea></label>
+          </div>
+          <div class="finding-validation ${isFindingComplete(r)?'complete':'incomplete'}">${isFindingComplete(r)?'✓ Zorunlu bulgu bilgileri tamamlandı.':'! Eksik: '+esc(findingMissingFields(r).join(', '))}</div>
         </div>
         <div class="followup-box ${hasTask?'active':''}">
           <div class="followup-box-title"><span>Takip / Beklenen Husus</span><small>Buraya yazılan husus otomatik olarak açık takip kabul edilir. Hatırlatma tarihi boş bırakılırsa ayrıca uyarılır.</small></div>
@@ -366,6 +401,12 @@
         refreshResultButtons(card,inp.value);
         scheduleResponseSave(card,inp,true);
       }));
+      card.querySelectorAll('.finding-level-btn').forEach(btn=>btn.addEventListener('click',()=>{
+        const inp=card.querySelector('[data-field="findingLevel"]');
+        inp.value=btn.dataset.level||'';
+        card.querySelectorAll('.finding-level-btn').forEach(x=>x.classList.toggle('active',x.dataset.level===inp.value));
+        scheduleResponseSave(card,inp,true);
+      }));
       card.querySelectorAll('.followup-date-btn').forEach(btn=>btn.addEventListener('click',()=>{
         const inp=card.querySelector('[data-field="reminderDate"]');
         if(inp.disabled) return;
@@ -388,7 +429,7 @@
     const pill=card.querySelector('.aad-result-pill');
     if(pill){
       pill.className='aad-result-pill '+cls;
-      const icon=({Uygun:'✓',Bulgu:'!',Gözlem:'•',Uygulanamaz:'—'})[result]||'○';
+      const icon=resultIcon(result);
       pill.innerHTML=`<b>${icon}</b>${esc(result||'Değerlendirilmedi')}`;
     }
   }
@@ -415,13 +456,14 @@
       else { r.completedAt=null; }
     }
 
+    refreshFindingPanel(card,r);
     refreshCardFollowUp(card,r);
     refreshQuestionStats(card.closest('.question-block'));
     card.querySelector('.save-state').innerHTML='<span class="save-dot saving"></span>Yerel yedek alındı • Firebase’e kaydediliyor…';
     const compactSave=card.querySelector('.aad-save-summary'); if(compactSave){compactSave.className='aad-save-summary saving';compactSave.textContent='… Kaydediliyor';}
     refreshAadSummaryFlags(card,r);
     setSaveStatus('saving');
-    updateKpis(); renderFollowUpPanel();
+    updateKpis(); renderFindingSummaryPanel(); renderFollowUpPanel();
     clearTimeout(saveTimers[key]);
     saveTimers[key]=setTimeout(async()=>{
       try{
@@ -445,6 +487,8 @@
     const bits=[];
     if(String(r.evidenceRefs||'').trim()) bits.push('<span>📎 Kanıt ref.</span>');
     if(String(r.auditorNote||'').trim()) bits.push('<span>📝 Denetçi notu</span>');
+    if(isNoncompliant(r) && r.findingLevel) bits.push(`<span class="finding-flag">⚑ ${esc(r.findingLevel)}</span>`);
+    if(isNoncompliant(r) && !isFindingComplete(r)) bits.push('<span class="finding-incomplete-flag">! Bulgu bilgisi eksik</span>');
     wrap.innerHTML=bits.length?bits.join(''):'<span class="muted">Henüz çalışma notu yok</span>';
   }
 
@@ -453,13 +497,33 @@
     const code=block.dataset.code;
     const items=criteria.filter(i=>i.questionCode===code);
     const a=currentAudit(); if(!a || !items.length) return;
-    const assessedCount=items.filter(i=>getResponse(a,i.htmlKey).result).length;
-    const findingCount=items.filter(i=>getResponse(a,i.htmlKey).result==='Bulgu').length;
+    const assessedCount=items.filter(i=>isAssessmentComplete(getResponse(a,i.htmlKey))).length;
+    const findingCount=items.filter(i=>getResponse(a,i.htmlKey).result==='Uygun Değil').length;
     const followCount=items.filter(i=>isOpenFollowUpTiming(followUpTiming(getResponse(a,i.htmlKey)))).length;
     const stats=block.querySelector('.question-stats'); if(!stats) return;
     const body=block.querySelector('.question-body');
-    stats.innerHTML=`<strong>${assessedCount}/${items.length}</strong><span>değerlendirildi</span>${findingCount?`<span class="qstat danger">${findingCount} bulgu</span>`:''}${followCount?`<span class="qstat warn">${followCount} takip</span>`:''}<span class="question-chevron">${body && !body.classList.contains('hidden')?'⌃':'⌄'}</span>`;
+    stats.innerHTML=`<strong>${assessedCount}/${items.length}</strong><span>değerlendirildi</span>${findingCount?`<span class="qstat danger">${findingCount} uygun değil</span>`:''}${followCount?`<span class="qstat warn">${followCount} takip</span>`:''}<span class="question-chevron">${body && !body.classList.contains('hidden')?'⌃':'⌄'}</span>`;
     const progress=block.querySelector('.question-progress-track span'); if(progress) progress.style.width=Math.round((assessedCount/items.length)*100)+'%';
+  }
+
+  function refreshFindingPanel(card,r){
+    const box=card.querySelector('.finding-detail-box'); if(!box) return;
+    const active=isNoncompliant(r);
+    box.classList.toggle('hidden',!active); box.classList.toggle('active',active);
+    box.classList.toggle('incomplete',active && !isFindingComplete(r));
+    const validation=box.querySelector('.finding-validation');
+    if(validation){
+      validation.className='finding-validation '+(isFindingComplete(r)?'complete':'incomplete');
+      validation.textContent=isFindingComplete(r)?'✓ Zorunlu bulgu bilgileri tamamlandı.':'! Eksik: '+findingMissingFields(r).join(', ');
+    }
+    box.querySelectorAll('.finding-level-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.level===(r.findingLevel||'')));
+    card.classList.toggle('finding-incomplete',active && !isFindingComplete(r));
+    const statusWrap=card.querySelector('.aad-accordion-status');
+    const old=statusWrap?.querySelector('.finding-level-badge'); if(old) old.remove();
+    if(active && r.findingLevel && statusWrap){
+      const badge=document.createElement('span'); badge.className='finding-level-badge level-'+r.findingLevel.replace(/\s+/g,'-'); badge.textContent=r.findingLevel;
+      const resultPill=statusWrap.querySelector('.aad-result-pill'); statusWrap.insertBefore(badge,resultPill||statusWrap.firstChild);
+    }
   }
 
   function refreshCardFollowUp(card,r){
@@ -487,24 +551,53 @@
   }
 
   function updateKpis(){
-    const a=currentAudit(); let assessed=0, findings=0, obs=0, remote=0, onsite=0, pending=0, overdue=0, undated=0;
+    const a=currentAudit(); let assessed=0, compliant=0, noncompliant=0, na=0, notAsked=0, remote=0, onsite=0, pending=0, overdue=0, undated=0;
     criteria.forEach(i=>{
       const r=getResponse(a,i.htmlKey);
-      if(r.result){assessed++; if(i.auditType==='Uzaktan')remote++; else onsite++;}
-      if(r.result==='Bulgu')findings++; if(r.result==='Gözlem')obs++;
+      if(isAssessmentComplete(r)){assessed++; if(i.auditType==='Uzaktan')remote++; else onsite++;}
+      if(r.result==='Uygun')compliant++;
+      if(r.result==='Uygun Değil')noncompliant++;
+      if(r.result==='N/A')na++;
+      if(r.result==='Sorulmadı')notAsked++;
       const timing=followUpTiming(r);
       if(isOpenFollowUpTiming(timing))pending++;
       if(timing==='overdue')overdue++;
       if(timing==='undated')undated++;
     });
-    els.kpiProgress.textContent=`${assessed}/${criteria.length}`; els.kpiFindings.textContent=findings; els.kpiObservations.textContent=obs;
+    els.kpiProgress.textContent=`${assessed}/${criteria.length}`;
+    els.kpiCompliant.textContent=compliant; els.kpiNoncompliant.textContent=noncompliant; els.kpiNA.textContent=na; els.kpiNotAsked.textContent=notAsked;
     els.kpiRemote.textContent=`${remote}/23`; els.kpiOnsite.textContent=`${onsite}/35`; els.kpiPending.textContent=pending; els.kpiOverdue.textContent=overdue; els.kpiUndated.textContent=undated;
     const pct=Math.round((assessed/criteria.length)*100);
     if(els.auditProgressBar) els.auditProgressBar.style.width=pct+'%';
     if(els.auditProgressPercent) els.auditProgressPercent.textContent='%'+pct;
+    els.kpiNoncompliant.closest('.overview-metric')?.classList.toggle('has-value',noncompliant>0);
     els.kpiOverdue.closest('.overview-metric')?.classList.toggle('has-value',overdue>0);
     els.kpiPending.closest('.overview-metric')?.classList.toggle('has-value',pending>0);
     els.kpiUndated.closest('.overview-metric')?.classList.toggle('has-value',undated>0);
+  }
+
+  function renderFindingSummaryPanel(){
+    const a=currentAudit(); if(!a || !els.findingSummaryPanel) return;
+    const rows=[];
+    criteria.forEach(i=>{ const r=getResponse(a,i.htmlKey); if(isNoncompliant(r)) rows.push({i,r,complete:isFindingComplete(r)}); });
+    const order={'Seviye 1':0,'Seviye 2':1,'Gözlem':2,'':3};
+    rows.sort((x,y)=>(order[x.r.findingLevel||'']??9)-(order[y.r.findingLevel||'']??9) || x.i.shortCode.localeCompare(y.i.shortCode,'tr'));
+    const level1=rows.filter(x=>x.r.findingLevel==='Seviye 1'&&x.complete).length;
+    const level2=rows.filter(x=>x.r.findingLevel==='Seviye 2'&&x.complete).length;
+    const observations=rows.filter(x=>x.r.findingLevel==='Gözlem'&&x.complete).length;
+    const incomplete=rows.filter(x=>!x.complete).length;
+    els.findingSummaryPanel.classList.toggle('hidden',rows.length===0);
+    if(els.findingLevel1Count) els.findingLevel1Count.textContent=level1;
+    if(els.findingLevel2Count) els.findingLevel2Count.textContent=level2;
+    if(els.findingObservationCount) els.findingObservationCount.textContent=observations;
+    if(els.findingSummaryAttention){ els.findingSummaryAttention.textContent=incomplete?`• ${incomplete} bulgu kaydında zorunlu bilgi eksik`:''; els.findingSummaryAttention.className='finding-summary-attention'+(incomplete?' danger':''); }
+    els.findingSummaryList.innerHTML=rows.map(({i,r,complete})=>`<tr class="finding-summary-row ${complete?'':'incomplete'}" data-key="${esc(i.htmlKey)}">
+      <td><strong>${esc(i.shortCode)} / ${esc(i.aadCode)}</strong></td>
+      <td>${r.findingLevel?`<span class="finding-level-badge level-${esc(r.findingLevel.replace(/\s+/g,'-'))}">${esc(r.findingLevel)}</span>`:'<span class="finding-missing">Seviye seçilmedi</span>'}</td>
+      <td>${r.predefinedFinding?esc(r.predefinedFinding):'<span class="finding-missing">Eksik</span>'}</td>
+      <td>${r.findingDescription?esc(r.findingDescription):'<span class="finding-missing">Eksik</span>'}</td>
+    </tr>`).join('');
+    els.findingSummaryList.querySelectorAll('.finding-summary-row').forEach(row=>row.onclick=()=>goToAad(row.dataset.key));
   }
 
   function renderFollowUpPanel(){
@@ -545,7 +638,7 @@
       const key=btn.dataset.key; const r=getResponse(a,key);
       r.followUpStatus='Tamamlandı'; r.completedAt=r.completedAt||nowIso(); r.updatedAt=nowIso();
       btn.disabled=true; btn.textContent='Kaydediliyor…'; setSaveStatus('saving');
-      try{ await persistAudit(a); setSaveStatus(state.offlineMode?'local':'saved'); renderAuditList(); renderFollowUpPanel(); renderQuestions(); updateKpis(); toast('Takip tamamlandı.'); }
+      try{ await persistAudit(a); setSaveStatus(state.offlineMode?'local':'saved'); renderAuditList(); renderFindingSummaryPanel(); renderFollowUpPanel(); renderQuestions(); updateKpis(); toast('Takip tamamlandı.'); }
       catch(err){ console.error(err); setSaveStatus('error'); btn.disabled=false; btn.textContent='✓ Tamamla'; toast('Takip kaydedilemedi.'); }
     });
   }
@@ -553,7 +646,7 @@
   function goToNextUnassessed(){
     const a=currentAudit(); if(!a)return;
     const type=els.typeFilter.value;
-    const candidates=criteria.filter(i=>(type==='all'||i.auditType===type) && !getResponse(a,i.htmlKey).result);
+    const candidates=criteria.filter(i=>(type==='all'||i.auditType===type) && !isAssessmentComplete(getResponse(a,i.htmlKey)));
     if(!candidates.length){ toast(type==='all'?'Tüm AAD değerlendirmeleri tamamlandı.':`${type} AAD değerlendirmeleri tamamlandı.`); return; }
     goToAad(candidates[0].htmlKey,{preserveType:true});
   }
@@ -628,6 +721,7 @@
   els.auditSearch.addEventListener('input',renderAuditList);
   [els.criterionSearch,els.typeFilter,els.resultFilter,els.followUpFilter].forEach(x=>x.addEventListener('input',renderQuestions));
   els.expandAllBtn.onclick=()=>{const codes=[...new Set(criteria.map(x=>x.questionCode))]; const allOpen=codes.every(c=>state.expanded.has(c)); state.expanded=new Set(allOpen?[]:codes); renderQuestions();};
+  if(els.showNoncompliantBtn) els.showNoncompliantBtn.onclick=()=>{els.criterionSearch.value='';els.typeFilter.value='all';els.resultFilter.value='Uygun Değil';els.followUpFilter.value='all';renderQuestions();els.questions.scrollIntoView({behavior:'smooth',block:'start'});};
   els.showAllPendingBtn.onclick=()=>{els.criterionSearch.value='';els.typeFilter.value='all';els.resultFilter.value='all';els.followUpFilter.value='pending';renderQuestions();els.questions.scrollIntoView({behavior:'smooth',block:'start'});};
   els.nextUnassessedBtn.onclick=goToNextUnassessed;
   els.exportBtn.onclick=exportAudit; els.printBtn.onclick=()=>window.print();

@@ -84,12 +84,14 @@
               </div>
             </section>
             <section class="overview-card assessment-overview">
-              <div class="overview-label">DEĞERLENDİRME</div>
-              <div class="overview-metric-grid">
-                <div class="overview-metric finding"><strong id="kpiFindings">0</strong><span>Bulgu</span></div>
-                <div class="overview-metric observation"><strong id="kpiObservations">0</strong><span>Gözlem</span></div>
+              <div class="overview-label">DEĞERLENDİRME SONUÇLARI</div>
+              <div class="overview-metric-grid four">
+                <div class="overview-metric compliant"><strong id="kpiCompliant">0</strong><span>Uygun</span></div>
+                <div class="overview-metric noncompliant"><strong id="kpiNoncompliant">0</strong><span>Uygun Değil</span></div>
+                <div class="overview-metric na"><strong id="kpiNA">0</strong><span>N/A</span></div>
+                <div class="overview-metric notasked"><strong id="kpiNotAsked">0</strong><span>Sorulmadı</span></div>
               </div>
-              <p class="overview-help">Sonuçlar AAD kartlarında tek tıkla güncellenir.</p>
+              <p class="overview-help">Uygun Değil seçildiğinde bulgu seviyesi ve iki bulgu metni zorunludur.</p>
             </section>
             <section class="overview-card followup-overview">
               <div class="overview-label">TAKİP / BEKLENEN HUSUS</div>
@@ -100,6 +102,27 @@
               </div>
               <p class="overview-help">Gecikmiş ve tarihsiz işler daha yüksek görsel öncelik alır.</p>
             </section>
+          </div>
+        </section>
+
+        <section id="findingSummaryPanel" class="panel finding-summary-panel hidden">
+          <div class="panel-title-row finding-summary-title-row">
+            <div>
+              <h2>Uygun Değil / Tespit Özeti</h2>
+              <p>AAD değerlendirmelerinden oluşan Seviye 1, Seviye 2 ve Gözlem tespitleri <span id="findingSummaryAttention" class="finding-summary-attention"></span></p>
+            </div>
+            <button id="showNoncompliantBtn" class="btn secondary small">Uygun Değil kayıtlarını göster</button>
+          </div>
+          <div class="finding-summary-kpis">
+            <div class="finding-summary-kpi level1"><strong id="findingLevel1Count">0</strong><span>Seviye 1</span></div>
+            <div class="finding-summary-kpi level2"><strong id="findingLevel2Count">0</strong><span>Seviye 2</span></div>
+            <div class="finding-summary-kpi observation"><strong id="findingObservationCount">0</strong><span>Gözlem</span></div>
+          </div>
+          <div class="finding-summary-table-wrap">
+            <table class="finding-summary-table">
+              <thead><tr><th>AAD</th><th>Seviye</th><th>Ön Tanımlı Bulgu</th><th>Bulgu Açıklaması</th></tr></thead>
+              <tbody id="findingSummaryList"></tbody>
+            </table>
           </div>
         </section>
 
@@ -134,11 +157,12 @@
               </select>
               <select id="resultFilter" class="input compact">
                 <option value="all">Tüm sonuçlar</option>
-                <option value="unassessed">Değerlendirilmedi</option>
-                <option value="Bulgu">Sadece bulgular</option>
-                <option value="Gözlem">Sadece gözlemler</option>
-                <option value="Uygun">Sadece uygunlar</option>
-                <option value="Uygulanamaz">Uygulanamaz</option>
+                <option value="unassessed">Değerlendirilmedi / eksik</option>
+                <option value="Uygun">Uygun</option>
+                <option value="Uygun Değil">Uygun Değil</option>
+                <option value="incomplete-finding">Eksik bulgu bilgisi</option>
+                <option value="N/A">N/A</option>
+                <option value="Sorulmadı">Sorulmadı</option>
               </select>
               <select id="followUpFilter" class="input compact">
                 <option value="all">Tüm takip durumları</option>

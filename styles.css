@@ -128,3 +128,44 @@ details{margin-top:3px}details summary{font-size:11px;color:#536b80;cursor:point
 .btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}.btn.danger:hover{filter:brightness(.92)}
 .audit-dialog-actions{justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:14px;margin-top:4px}.dialog-actions-right{display:flex;gap:8px;align-items:center;margin-left:auto}
 @media(max-width:520px){.audit-dialog-actions{align-items:stretch;flex-direction:column-reverse}.dialog-actions-right{width:100%;margin-left:0}.dialog-actions-right .btn,.audit-dialog-actions>.btn{flex:1;justify-content:center}}
+
+/* ===== v12: Değerlendirme Sonuçları + Bulgu Seviyesi ===== */
+.overview-metric-grid.four{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.overview-metric.compliant{border-bottom:3px solid #67a77d}.overview-metric.compliant strong{color:#176b3a}
+.overview-metric.noncompliant{border-bottom:3px solid #c95050}.overview-metric.noncompliant strong{color:#9f241b}.overview-metric.noncompliant.has-value{background:#fff3f2;border-color:#efb4ae}
+.overview-metric.na{border-bottom:3px solid #91a0ae}.overview-metric.na strong{color:#526272}
+.overview-metric.notasked{border-bottom:3px solid #6f8fa9}.overview-metric.notasked strong{color:#365d7c}
+
+.aad-card.result-Uygun-Değil{border-left-color:#c95050;background:#fffdfd}
+.aad-card.result-N-A{border-left-color:#8393a3}
+.aad-card.result-Sorulmadı{border-left-color:#6f8fa9;background:#fbfdff}
+.aad-card.finding-incomplete{box-shadow:inset 0 0 0 1px rgba(201,80,80,.2)}
+.aad-result-pill.result-Uygun-Değil{background:#fff0ef;border-color:#e5aaa5;color:#9f241b}
+.aad-result-pill.result-N-A{background:#f0f3f6;border-color:#cad3dc;color:#526272}
+.aad-result-pill.result-Sorulmadı{background:#eef6fb;border-color:#bfd3e2;color:#365d7c}
+.aad-accordion.result-Uygun-Değil .aad-accordion-head{background:rgba(201,80,80,.025)}
+.result-btn.notasked.active{background:#eef6fb;border-color:#8bb0ca;color:#365d7c;box-shadow:inset 0 0 0 1px #6f8fa9}
+
+.finding-detail-box{margin-top:15px;border:1px solid #e3b8b4;border-left:4px solid #c95050;border-radius:10px;padding:14px;background:linear-gradient(180deg,#fff8f7,#fff)}
+.finding-detail-box.hidden{display:none}.finding-detail-box.incomplete{border-color:#d97777;background:#fff5f4}
+.finding-detail-title{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.finding-detail-title>div{display:flex;flex-direction:column;gap:3px}.finding-detail-title span:first-child{font-size:13px;font-weight:900;color:#842d28}.finding-detail-title small{font-size:10px;line-height:1.45;color:#7c6a68;font-weight:600}
+.required-badge{flex:0 0 auto;font-size:9px;font-weight:900;letter-spacing:.05em;color:#9f241b;background:#fff;border:1px solid #e5aaa5;border-radius:999px;padding:4px 7px}
+.finding-level-field>label{display:block;font-size:10px;font-weight:900;color:#6f4a47;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
+.finding-level-buttons{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-bottom:12px}
+.finding-level-btn{min-height:38px;border:1px solid #cfd8df;border-radius:8px;background:#fff;color:#526272;font:inherit;font-size:11px;font-weight:900;cursor:pointer;transition:.15s}
+.finding-level-btn:hover{transform:translateY(-1px);border-color:#97a9b8}.finding-level-btn.level1.active{background:#fff0ef;border-color:#c95050;color:#9f241b;box-shadow:inset 0 0 0 1px #c95050}.finding-level-btn.level2.active{background:#fff7e8;border-color:#cf9a3b;color:#82550a;box-shadow:inset 0 0 0 1px #cf9a3b}.finding-level-btn.observation.active{background:#eef6fb;border-color:#6f8fa9;color:#365d7c;box-shadow:inset 0 0 0 1px #6f8fa9}
+.finding-text-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}.finding-text-grid label{display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:800;color:#5e4442}.finding-text-grid textarea{min-height:92px;resize:vertical;line-height:1.5}
+.finding-detail-box.incomplete .finding-required:placeholder-shown{border-color:#dca09b;background:#fffdfd}
+.finding-validation{margin-top:9px;padding:8px 10px;border-radius:7px;font-size:10px;font-weight:800}.finding-validation.complete{color:#176b3a;background:#edf8f1;border:1px solid #afd5bc}.finding-validation.incomplete{color:#9f241b;background:#fff0ef;border:1px solid #e5aaa5}
+.finding-level-badge{display:inline-flex;align-items:center;height:27px;padding:0 8px;border-radius:999px;border:1px solid #d7e0e8;background:#f7f9fb;color:#526272;font-size:9px;font-weight:900;white-space:nowrap}.finding-level-badge.level-Seviye-1{background:#fff0ef;border-color:#e5aaa5;color:#9f241b}.finding-level-badge.level-Seviye-2{background:#fff7e8;border-color:#e3c487;color:#82550a}.finding-level-badge.level-Gözlem{background:#eef6fb;border-color:#bfd3e2;color:#365d7c}
+.aad-summary-flags .finding-flag{color:#7b4d18;background:#fff8ec;border-color:#ead4ae}.aad-summary-flags .finding-incomplete-flag{color:#9f241b;background:#fff3f2;border-color:#e7b5b0}
+
+.finding-summary-panel{padding:16px;margin-top:14px;border:1px solid #ddb0ac;box-shadow:0 7px 20px rgba(156,45,38,.05);background:linear-gradient(180deg,#fffafa,#fff)}
+.finding-summary-title-row{align-items:flex-start}.finding-summary-title-row h2{margin:0;font-size:16px;color:#842d28}.finding-summary-title-row p{margin:4px 0 0;color:var(--muted);font-size:12px}.finding-summary-attention{font-weight:800}.finding-summary-attention.danger{color:#b42318}
+.finding-summary-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,150px));gap:8px;margin-top:12px}.finding-summary-kpi{border:1px solid #e2e8ee;border-radius:9px;padding:9px 10px;background:#fff}.finding-summary-kpi strong{display:block;font-size:21px;line-height:1}.finding-summary-kpi span{display:block;margin-top:4px;font-size:9px;font-weight:900;text-transform:uppercase;color:#718293}.finding-summary-kpi.level1{border-bottom:3px solid #c95050}.finding-summary-kpi.level1 strong{color:#9f241b}.finding-summary-kpi.level2{border-bottom:3px solid #cf9a3b}.finding-summary-kpi.level2 strong{color:#82550a}.finding-summary-kpi.observation{border-bottom:3px solid #6f8fa9}.finding-summary-kpi.observation strong{color:#365d7c}
+.finding-summary-table-wrap{overflow:auto;margin-top:12px}.finding-summary-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}.finding-summary-table th{text-align:left;color:#536577;font-size:10px;text-transform:uppercase;letter-spacing:.04em;padding:8px;border-bottom:1px solid var(--line);background:#fff8f7}.finding-summary-table th:nth-child(1){width:12%}.finding-summary-table th:nth-child(2){width:14%}.finding-summary-table th:nth-child(3){width:34%}.finding-summary-table th:nth-child(4){width:40%}.finding-summary-table td{padding:9px 8px;border-bottom:1px solid #edf0f3;vertical-align:top;line-height:1.45;word-break:break-word}.finding-summary-table tbody tr{cursor:pointer}.finding-summary-table tbody tr:hover{background:#fff8f7}.finding-summary-row.incomplete{box-shadow:inset 4px 0 0 #c95050;background:#fffafa}.finding-missing{color:#b42318;font-weight:800;font-size:10px}
+
+@media(max-width:900px){.finding-text-grid{grid-template-columns:1fr}.finding-summary-kpis{grid-template-columns:repeat(3,1fr);max-width:none}.finding-summary-table{min-width:760px}}
+@media(max-width:560px){.finding-level-buttons{grid-template-columns:1fr}.overview-metric-grid.four{grid-template-columns:1fr 1fr}.finding-summary-kpis{grid-template-columns:1fr 1fr 1fr}}
+@media print{.finding-detail-box{break-inside:avoid}.finding-summary-panel{box-shadow:none}.finding-summary-title-row .btn{display:none!important}}
