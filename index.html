@@ -180,9 +180,12 @@
       <label>Baş denetçi<input id="leadAuditor" class="input" /></label>
       <label>Denetim ekibi<input id="auditors" class="input" placeholder="Virgülle ayırabilirsiniz" /></label>
       <label>Genel denetim notu<textarea id="auditGeneralNote" class="input" rows="3"></textarea></label>
-      <div class="dialog-actions">
-        <button type="button" class="btn secondary cancel-dialog">Vazgeç</button>
-        <button id="saveAuditBtn" value="default" class="btn">Kaydet</button>
+      <div class="dialog-actions audit-dialog-actions">
+        <button type="button" id="deleteAuditBtn" class="btn danger hidden">🗑️ Denetimi Sil</button>
+        <div class="dialog-actions-right">
+          <button type="button" class="btn secondary cancel-dialog">Vazgeç</button>
+          <button id="saveAuditBtn" value="default" class="btn">Kaydet</button>
+        </div>
       </div>
     </form>
   </dialog>

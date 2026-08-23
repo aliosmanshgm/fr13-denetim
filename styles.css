@@ -122,3 +122,9 @@ details{margin-top:3px}details summary{font-size:11px;color:#536b80;cursor:point
 @media(max-width:900px){.aad-accordion-head{grid-template-columns:1fr;gap:9px}.aad-accordion-status{justify-content:flex-start;max-width:none}.aad-save-summary{margin-left:auto}.aad-chevron{margin-left:0}}
 @media(max-width:560px){.aad-accordion-head{padding:11px 12px}.aad-accordion-status{gap:5px}.aad-save-summary{margin-left:0}.aad-summary-criterion{-webkit-line-clamp:3}.aad-accordion-body{padding:0 12px 13px}.aad-accordion-status .followup-badge,.aad-accordion-status .aad-result-pill{font-size:9px}}
 @media print{.aad-accordion-body.hidden{display:block!important}.aad-accordion-head{padding:8px 0}.aad-chevron,.aad-save-summary{display:none!important}.aad-accordion-body{padding:0;border-top:0}}
+
+
+/* UX v11 - Denetim kaydi guncelleme/silme */
+.btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}.btn.danger:hover{filter:brightness(.92)}
+.audit-dialog-actions{justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:14px;margin-top:4px}.dialog-actions-right{display:flex;gap:8px;align-items:center;margin-left:auto}
+@media(max-width:520px){.audit-dialog-actions{align-items:stretch;flex-direction:column-reverse}.dialog-actions-right{width:100%;margin-left:0}.dialog-actions-right .btn,.audit-dialog-actions>.btn{flex:1;justify-content:center}}

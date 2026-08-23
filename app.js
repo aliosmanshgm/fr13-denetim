@@ -16,7 +16,7 @@
     kpiPending:$('kpiPending'), kpiOverdue:$('kpiOverdue'), kpiUndated:$('kpiUndated'), auditProgressBar:$('auditProgressBar'), auditProgressPercent:$('auditProgressPercent'), followUpPanel:$('followUpPanel'), followUpList:$('followUpList'), followUpAttention:$('followUpAttention'), showAllPendingBtn:$('showAllPendingBtn'),
     criterionSearch:$('criterionSearch'), typeFilter:$('typeFilter'), resultFilter:$('resultFilter'), followUpFilter:$('followUpFilter'), nextUnassessedBtn:$('nextUnassessedBtn'), expandAllBtn:$('expandAllBtn'), questions:$('questions'),
     auditDialog:$('auditDialog'), auditForm:$('auditForm'), auditDialogTitle:$('auditDialogTitle'), auditId:$('auditId'), organizationName:$('organizationName'), auditNo:$('auditNo'),
-    auditStatus:$('auditStatus'), auditStartDate:$('auditStartDate'), auditEndDate:$('auditEndDate'), leadAuditor:$('leadAuditor'), auditors:$('auditors'), auditGeneralNote:$('auditGeneralNote'),
+    auditStatus:$('auditStatus'), auditStartDate:$('auditStartDate'), auditEndDate:$('auditEndDate'), leadAuditor:$('leadAuditor'), auditors:$('auditors'), auditGeneralNote:$('auditGeneralNote'), deleteAuditBtn:$('deleteAuditBtn'),
     toast:$('toast')
   };
 
@@ -572,7 +572,9 @@
   function openAuditDialog(a=null){
     els.auditDialogTitle.textContent=a?'Denetim bilgilerini düzenle':'Yeni denetim'; els.auditId.value=a?.id||''; els.organizationName.value=a?.organizationName||'';
     els.auditNo.value=a?.auditNo||''; els.auditStatus.value=a?.status||'Taslak'; els.auditStartDate.value=a?.startDate||''; els.auditEndDate.value=a?.endDate||'';
-    els.leadAuditor.value=a?.leadAuditor||''; els.auditors.value=a?.auditors||''; els.auditGeneralNote.value=a?.generalNote||''; els.auditDialog.showModal();
+    els.leadAuditor.value=a?.leadAuditor||''; els.auditors.value=a?.auditors||''; els.auditGeneralNote.value=a?.generalNote||'';
+    if(els.deleteAuditBtn) els.deleteAuditBtn.classList.toggle('hidden',!a);
+    els.auditDialog.showModal();
   }
   async function saveAuditFromDialog(e){
     e.preventDefault(); if(!els.organizationName.value.trim()){els.organizationName.focus();return;}
@@ -582,6 +584,38 @@
     await persistAudit(a); els.auditDialog.close(); renderAll(); toast('Denetim kaydedildi.');
   }
 
+  async function deleteCurrentAudit(){
+    const a=currentAudit();
+    if(!a || !els.auditId.value) return;
+    const label=[a.auditNo,a.organizationName].filter(Boolean).join(' — ') || 'Bu denetim';
+    const cloudDelete=!!(state.firebase && state.user && !state.offlineMode);
+    const message=cloudDelete
+      ? `“${label}” kaydını kalıcı olarak silmek istediğinize emin misiniz?\n\nDenetim üst bilgileri, 58 AAD'ye ait değerlendirmeler, notlar ve takip kayıtları Firebase Realtime Database'den ve bu cihazdaki yerel yedekten silinecektir. Bu işlem geri alınamaz.`
+      : `“${label}” kaydını bu cihazdaki yerel kayıtlardan silmek istediğinize emin misiniz?\n\nÇevrimdışı modda Firebase üzerindeki bir kayıt silinmez.`;
+    if(!window.confirm(message)) return;
+    const id=a.id;
+    if(els.deleteAuditBtn){ els.deleteAuditBtn.disabled=true; els.deleteAuditBtn.textContent='Siliniyor…'; }
+    try{
+      setSaveStatus('saving','… Siliniyor');
+      if(cloudDelete) await state.firebase.db.ref('fr13_audits/'+id).remove();
+      state.audits=state.audits.filter(x=>x.id!==id);
+      clearPendingSync(id);
+      state.activeAuditId=state.audits[0]?.id||null;
+      state.expanded.clear(); state.expandedAads.clear();
+      saveLocal();
+      els.auditDialog.close();
+      setSaveStatus(state.offlineMode?'local':'saved');
+      renderAll();
+      toast(cloudDelete?'Denetim Firebase’den silindi.':'Yerel denetim kaydı silindi.');
+    }catch(err){
+      console.error('Denetim silinemedi',err);
+      setSaveStatus('error','! Silme başarısız');
+      window.alert('Denetim silinemedi: '+(err?.message||err));
+    }finally{
+      if(els.deleteAuditBtn){ els.deleteAuditBtn.disabled=false; els.deleteAuditBtn.textContent='🗑️ Denetimi Sil'; }
+    }
+  }
+
   function exportAudit(){
     const a=currentAudit(); if(!a)return;
     const payload={...a,template:{id:T.templateId,version:T.formatVersion},criteriaSnapshot:criteria};
@@ -589,7 +623,7 @@
     x.href=url; x.download=`FR13_${(a.auditNo||a.organizationName||'denetim').replace(/[^a-z0-9çğıöşü_-]+/gi,'_')}.json`; x.click(); setTimeout(()=>URL.revokeObjectURL(url),500);
   }
 
-  els.newAuditBtn.onclick=()=>openAuditDialog(); els.editAuditBtn.onclick=()=>openAuditDialog(currentAudit()); els.auditForm.addEventListener('submit',saveAuditFromDialog);
+  els.newAuditBtn.onclick=()=>openAuditDialog(); els.editAuditBtn.onclick=()=>openAuditDialog(currentAudit()); els.auditForm.addEventListener('submit',saveAuditFromDialog); if(els.deleteAuditBtn) els.deleteAuditBtn.onclick=deleteCurrentAudit;
   document.querySelectorAll('.cancel-dialog').forEach(b=>b.onclick=()=>els.auditDialog.close());
   els.auditSearch.addEventListener('input',renderAuditList);
   [els.criterionSearch,els.typeFilter,els.resultFilter,els.followUpFilter].forEach(x=>x.addEventListener('input',renderQuestions));
