@@ -3,7 +3,7 @@
   const criteria = T.data;
   const STORAGE_KEY = 'fr13_audit_app_v1';
   const PENDING_SYNC_KEY = 'fr13_audit_pending_sync_v1';
-  const state = { audits: [], activeAuditId: null, firebase: null, firebaseConnected: false, user: null, offlineMode: false, expanded: new Set() };
+  const state = { audits: [], activeAuditId: null, firebase: null, firebaseConnected: false, user: null, offlineMode: false, expanded: new Set(), expandedAads: new Set() };
 
   const $ = (id) => document.getElementById(id);
   const els = {
@@ -229,7 +229,7 @@
         <small>${esc(a.startDate||'Tarih yok')} ${a.leadAuditor?'• '+esc(a.leadAuditor):''}</small>
       </div>`;
     }).join('') || '<div class="no-results">Denetim bulunamadı.</div>';
-    els.auditList.querySelectorAll('.audit-item').forEach(x=>x.onclick=()=>{state.activeAuditId=x.dataset.id; saveLocal(); renderAll();});
+    els.auditList.querySelectorAll('.audit-item').forEach(x=>x.onclick=()=>{state.activeAuditId=x.dataset.id; state.expandedAads.clear(); saveLocal(); renderAll();});
   }
 
   function renderWorkspace(){
@@ -284,50 +284,77 @@
     const resultClass=result ? 'result-'+result.replace(/[^a-zA-Z0-9ÇĞİÖŞÜçğıöşü]/g,'-') : 'result-unassessed';
     const resultLabel=result||'Değerlendirilmedi';
     const resultIcon=({Uygun:'✓',Bulgu:'!',Gözlem:'•',Uygulanamaz:'—'})[result]||'○';
-    return `<article class="aad-card ${resultClass} ${taskClass==='overdue'?'has-overdue':hasTask?'has-followup':''}" data-key="${esc(i.htmlKey)}">
-      <div class="aad-top"><div class="aad-heading-main"><div class="aad-title"><strong>${esc(i.shortCode)} / ${esc(i.aadCode)}</strong><span class="chip ${i.auditType==='Uzaktan'?'remote':'onsite'}">${esc(i.auditType)}</span>${hasTask?`<span class="followup-badge ${taskClass}">${esc(taskLabel)}</span>`:''}</div><div class="criterion">${esc(i.atomicCriterion)}</div></div><span class="aad-result-pill ${resultClass}"><b>${resultIcon}</b>${esc(resultLabel)}</span></div>
-      <details><summary>Denetçi açıklaması / kabul edilebilir kanıtlar</summary><div class="guidance">${esc(i.auditorGuidance||'')}</div></details>
-      <div class="aad-grid">
-        <label>İşletme kanıt referansları<textarea class="input response-input" data-field="evidenceRefs" placeholder="Örn. OM-A 11.3.2; SMSM 6.4; QDMS DOC-123">${esc(r.evidenceRefs||'')}</textarea></label>
-        <label>Denetçi notu<textarea class="input response-input" data-field="auditorNote" placeholder="Denetimde yapılan tespit / doğrulama notu">${esc(r.auditorNote||'')}</textarea></label>
-        <label>Değerlendirme sonucu
-          <input type="hidden" class="response-input result-select" data-field="result" data-value="${esc(result)}" value="${esc(result)}" />
-          <div class="result-buttons" role="group" aria-label="Değerlendirme sonucu">
-            <button type="button" class="result-btn good ${result==='Uygun'?'active':''}" data-result="Uygun">Uygun</button>
-            <button type="button" class="result-btn danger ${result==='Bulgu'?'active':''}" data-result="Bulgu">Bulgu</button>
-            <button type="button" class="result-btn warn ${result==='Gözlem'?'active':''}" data-result="Gözlem">Gözlem</button>
-            <button type="button" class="result-btn neutral ${result==='Uygulanamaz'?'active':''}" data-result="Uygulanamaz">Uygulanamaz</button>
-            <button type="button" class="result-clear ${!result?'active':''}" data-result="" title="Değerlendirmeyi temizle">×</button>
-          </div>
-        </label>
-      </div>
-      <div class="followup-box ${hasTask?'active':''}">
-        <div class="followup-box-title"><span>Takip / Beklenen Husus</span><small>Buraya yazılan husus otomatik olarak açık takip kabul edilir. Hatırlatma tarihi boş bırakılırsa ayrıca uyarılır.</small></div>
-        <div class="followup-grid">
-          <label class="followup-text-field">Talep edilen / beklenen husus<textarea class="input response-input followup-text" data-field="followUpText" placeholder="Örn. İşletmeden güncel olay kayıt listesi talep edildi.">${esc(r.followUpText||'')}</textarea></label>
-          <div class="followup-date-field">
-            <label>Hatırlatma tarihi<input type="date" class="input response-input" data-field="reminderDate" value="${esc(r.reminderDate||'')}" ${hasTask?'':'disabled'} /></label>
-            <div class="followup-date-presets">
-              <button type="button" class="followup-date-btn" data-days="0" ${hasTask?'':'disabled'}>Bugün</button>
-              <button type="button" class="followup-date-btn" data-days="1" ${hasTask?'':'disabled'}>Yarın</button>
-              <button type="button" class="followup-date-btn" data-days="3" ${hasTask?'':'disabled'}>+3 gün</button>
-              <button type="button" class="followup-date-btn" data-days="7" ${hasTask?'':'disabled'}>+7 gün</button>
-              <button type="button" class="followup-date-btn clear" data-days="clear" ${hasTask?'':'disabled'}>Temizle</button>
+    const expanded=state.expandedAads.has(i.htmlKey);
+    const hasEvidence=!!String(r.evidenceRefs||'').trim();
+    const hasNote=!!String(r.auditorNote||'').trim();
+    const saveLabel=r.updatedAt?'✓ Kayıtlı':'— Veri yok';
+    return `<article class="aad-card aad-accordion ${resultClass} ${taskClass==='overdue'?'has-overdue':hasTask?'has-followup':''} ${expanded?'expanded':''}" data-key="${esc(i.htmlKey)}">
+      <button type="button" class="aad-accordion-head" aria-expanded="${expanded?'true':'false'}" aria-controls="aad-body-${esc(i.htmlKey)}">
+        <div class="aad-accordion-main">
+          <div class="aad-title"><strong>${esc(i.shortCode)} / ${esc(i.aadCode)}</strong><span class="chip ${i.auditType==='Uzaktan'?'remote':'onsite'}">${esc(i.auditType)}</span></div>
+          <div class="aad-summary-criterion">${esc(i.atomicCriterion)}</div>
+          <div class="aad-summary-flags">${hasEvidence?'<span>📎 Kanıt ref.</span>':''}${hasNote?'<span>📝 Denetçi notu</span>':''}${!hasEvidence&&!hasNote?'<span class="muted">Henüz çalışma notu yok</span>':''}</div>
+        </div>
+        <div class="aad-accordion-status">
+          ${hasTask?`<span class="followup-badge ${taskClass}">${esc(taskLabel)}</span>`:''}
+          <span class="aad-result-pill ${resultClass}"><b>${resultIcon}</b>${esc(resultLabel)}</span>
+          <span class="aad-save-summary ${r.updatedAt?'saved':'empty'}">${saveLabel}</span>
+          <span class="aad-chevron" aria-hidden="true">${expanded?'⌃':'⌄'}</span>
+        </div>
+      </button>
+      <div id="aad-body-${esc(i.htmlKey)}" class="aad-accordion-body ${expanded?'':'hidden'}">
+        <div class="aad-detail-context"><span class="aad-detail-label">Atomik kriter</span><div class="criterion">${esc(i.atomicCriterion)}</div></div>
+        <details><summary>Denetçi açıklaması / kabul edilebilir kanıtlar</summary><div class="guidance">${esc(i.auditorGuidance||'')}</div></details>
+        <div class="aad-grid">
+          <label>İşletme kanıt referansları<textarea class="input response-input" data-field="evidenceRefs" placeholder="Örn. OM-A 11.3.2; SMSM 6.4; QDMS DOC-123">${esc(r.evidenceRefs||'')}</textarea></label>
+          <label>Denetçi notu<textarea class="input response-input" data-field="auditorNote" placeholder="Denetimde yapılan tespit / doğrulama notu">${esc(r.auditorNote||'')}</textarea></label>
+          <label>Değerlendirme sonucu
+            <input type="hidden" class="response-input result-select" data-field="result" data-value="${esc(result)}" value="${esc(result)}" />
+            <div class="result-buttons" role="group" aria-label="Değerlendirme sonucu">
+              <button type="button" class="result-btn good ${result==='Uygun'?'active':''}" data-result="Uygun">Uygun</button>
+              <button type="button" class="result-btn danger ${result==='Bulgu'?'active':''}" data-result="Bulgu">Bulgu</button>
+              <button type="button" class="result-btn warn ${result==='Gözlem'?'active':''}" data-result="Gözlem">Gözlem</button>
+              <button type="button" class="result-btn neutral ${result==='Uygulanamaz'?'active':''}" data-result="Uygulanamaz">Uygulanamaz</button>
+              <button type="button" class="result-clear ${!result?'active':''}" data-result="" title="Değerlendirmeyi temizle">×</button>
+            </div>
+          </label>
+        </div>
+        <div class="followup-box ${hasTask?'active':''}">
+          <div class="followup-box-title"><span>Takip / Beklenen Husus</span><small>Buraya yazılan husus otomatik olarak açık takip kabul edilir. Hatırlatma tarihi boş bırakılırsa ayrıca uyarılır.</small></div>
+          <div class="followup-grid">
+            <label class="followup-text-field">Talep edilen / beklenen husus<textarea class="input response-input followup-text" data-field="followUpText" placeholder="Örn. İşletmeden güncel olay kayıt listesi talep edildi.">${esc(r.followUpText||'')}</textarea></label>
+            <div class="followup-date-field">
+              <label>Hatırlatma tarihi<input type="date" class="input response-input" data-field="reminderDate" value="${esc(r.reminderDate||'')}" ${hasTask?'':'disabled'} /></label>
+              <div class="followup-date-presets">
+                <button type="button" class="followup-date-btn" data-days="0" ${hasTask?'':'disabled'}>Bugün</button>
+                <button type="button" class="followup-date-btn" data-days="1" ${hasTask?'':'disabled'}>Yarın</button>
+                <button type="button" class="followup-date-btn" data-days="3" ${hasTask?'':'disabled'}>+3 gün</button>
+                <button type="button" class="followup-date-btn" data-days="7" ${hasTask?'':'disabled'}>+7 gün</button>
+                <button type="button" class="followup-date-btn clear" data-days="clear" ${hasTask?'':'disabled'}>Temizle</button>
+              </div>
+            </div>
+            <div class="followup-status-field">
+              <label>Takip durumu<select class="input response-input followup-status" data-field="followUpStatus" ${hasTask?'':'disabled'}><option value="Bekleniyor" ${status==='Bekleniyor'?'selected':''}>Bekleniyor</option><option value="Tamamlandı" ${status==='Tamamlandı'?'selected':''}>Tamamlandı</option><option value="İptal" ${status==='İptal'?'selected':''}>İptal</option></select></label>
+              ${hasTask?`<button type="button" class="followup-action-btn ${status==='Tamamlandı'?'reopen':'complete'}" data-status="${status==='Tamamlandı'?'Bekleniyor':'Tamamlandı'}">${status==='Tamamlandı'?'↻ Yeniden aç':'✓ Tamamla'}</button>`:''}
             </div>
           </div>
-          <div class="followup-status-field">
-            <label>Takip durumu<select class="input response-input followup-status" data-field="followUpStatus" ${hasTask?'':'disabled'}><option value="Bekleniyor" ${status==='Bekleniyor'?'selected':''}>Bekleniyor</option><option value="Tamamlandı" ${status==='Tamamlandı'?'selected':''}>Tamamlandı</option><option value="İptal" ${status==='İptal'?'selected':''}>İptal</option></select></label>
-            ${hasTask?`<button type="button" class="followup-action-btn ${status==='Tamamlandı'?'reopen':'complete'}" data-status="${status==='Tamamlandı'?'Bekleniyor':'Tamamlandı'}">${status==='Tamamlandı'?'↻ Yeniden aç':'✓ Tamamla'}</button>`:''}
-          </div>
+          <div class="followup-info ${hasTask?taskClass+'':'hidden'}">${hasTask?`${taskLabel}${r.reminderDate?` • Hatırlatma: ${formatDate(r.reminderDate)}`:' • Hatırlatma tarihi girilmedi'}${r.followUpCreatedAt?` • Açılış: ${new Date(r.followUpCreatedAt).toLocaleDateString('tr-TR')}`:''}${r.completedAt?` • Tamamlandı: ${new Date(r.completedAt).toLocaleString('tr-TR')}`:''}`:''}</div>
         </div>
-        <div class="followup-info ${hasTask?taskClass+'':'hidden'}">${hasTask?`${taskLabel}${r.reminderDate?` • Hatırlatma: ${formatDate(r.reminderDate)}`:' • Hatırlatma tarihi girilmedi'}${r.followUpCreatedAt?` • Açılış: ${new Date(r.followUpCreatedAt).toLocaleDateString('tr-TR')}`:''}${r.completedAt?` • Tamamlandı: ${new Date(r.completedAt).toLocaleString('tr-TR')}`:''}`:''}</div>
+        <div class="save-state"><span class="save-dot"></span>${r.updatedAt?'Otomatik kayıt • '+new Date(r.updatedAt).toLocaleString('tr-TR'):'Otomatik kayıt açık • Henüz veri girilmedi'}</div>
       </div>
-      <div class="save-state"><span class="save-dot"></span>${r.updatedAt?'Otomatik kayıt • '+new Date(r.updatedAt).toLocaleString('tr-TR'):'Otomatik kayıt açık • Henüz veri girilmedi'}</div>
     </article>`;
   }
 
   function bindResponseInputs(){
     document.querySelectorAll('.aad-card').forEach(card=>{
+      const accordionHead=card.querySelector('.aad-accordion-head');
+      if(accordionHead) accordionHead.addEventListener('click',()=>{
+        const key=card.dataset.key; const body=card.querySelector('.aad-accordion-body'); const opening=body.classList.contains('hidden');
+        body.classList.toggle('hidden',!opening); card.classList.toggle('expanded',opening);
+        accordionHead.setAttribute('aria-expanded',opening?'true':'false');
+        const chevron=card.querySelector('.aad-chevron'); if(chevron) chevron.textContent=opening?'⌃':'⌄';
+        if(opening) state.expandedAads.add(key); else state.expandedAads.delete(key);
+      });
       card.querySelectorAll('.response-input').forEach(inp=>{
         inp.addEventListener('input',()=>scheduleResponseSave(card,inp));
         inp.addEventListener('change',()=>scheduleResponseSave(card,inp,true));
@@ -391,6 +418,8 @@
     refreshCardFollowUp(card,r);
     refreshQuestionStats(card.closest('.question-block'));
     card.querySelector('.save-state').innerHTML='<span class="save-dot saving"></span>Yerel yedek alındı • Firebase’e kaydediliyor…';
+    const compactSave=card.querySelector('.aad-save-summary'); if(compactSave){compactSave.className='aad-save-summary saving';compactSave.textContent='… Kaydediliyor';}
+    refreshAadSummaryFlags(card,r);
     setSaveStatus('saving');
     updateKpis(); renderFollowUpPanel();
     clearTimeout(saveTimers[key]);
@@ -399,14 +428,24 @@
         await persistAudit(a);
         renderAuditList();
         card.querySelector('.save-state').innerHTML='<span class="save-dot saved"></span>Firebase’e kaydedildi • '+new Date().toLocaleString('tr-TR');
+        if(compactSave){compactSave.className='aad-save-summary saved';compactSave.textContent='✓ Kaydedildi';}
         setSaveStatus(state.offlineMode?'local':'saved');
       }catch(err){
         console.error(err);
         card.querySelector('.save-state').innerHTML='<span class="save-dot error"></span>Firebase kayıt hatası • Yerel yedek korunuyor';
+        if(compactSave){compactSave.className='aad-save-summary error';compactSave.textContent='! Yerel yedek';}
         setSaveStatus('error');
         toast('Kayıt sırasında hata oluştu. İnternet/Firebase bağlantısını kontrol edin.');
       }
     }, immediate?60:400);
+  }
+
+  function refreshAadSummaryFlags(card,r){
+    const wrap=card.querySelector('.aad-summary-flags'); if(!wrap) return;
+    const bits=[];
+    if(String(r.evidenceRefs||'').trim()) bits.push('<span>📎 Kanıt ref.</span>');
+    if(String(r.auditorNote||'').trim()) bits.push('<span>📝 Denetçi notu</span>');
+    wrap.innerHTML=bits.length?bits.join(''):'<span class="muted">Henüz çalışma notu yok</span>';
   }
 
   function refreshQuestionStats(block){
@@ -433,9 +472,9 @@
     else { dateInput.value=''; statusSelect.value='Bekleniyor'; }
     card.classList.toggle('has-followup',active && timing!=='overdue');
     card.classList.toggle('has-overdue',timing==='overdue');
-    const title=card.querySelector('.aad-title'); const oldBadge=title.querySelector('.followup-badge'); if(oldBadge)oldBadge.remove();
-    if(active){
-      const badge=document.createElement('span'); badge.className=`followup-badge ${timing}`; badge.textContent=label; title.appendChild(badge);
+    const statusWrap=card.querySelector('.aad-accordion-status'); const oldBadge=statusWrap?.querySelector('.followup-badge'); if(oldBadge)oldBadge.remove();
+    if(active && statusWrap){
+      const badge=document.createElement('span'); badge.className=`followup-badge ${timing}`; badge.textContent=label; statusWrap.insertBefore(badge,statusWrap.firstChild);
     }
     const info=card.querySelector('.followup-info');
     info.className=`followup-info ${active?timing:'hidden'}`;
@@ -523,7 +562,7 @@
     const item=criteria.find(i=>i.htmlKey===key); if(!item)return;
     const currentType=els.typeFilter.value;
     els.criterionSearch.value=''; els.typeFilter.value=options.preserveType?currentType:'all'; els.resultFilter.value='all'; els.followUpFilter.value='all';
-    state.expanded.add(item.questionCode); renderQuestions();
+    state.expanded.add(item.questionCode); state.expandedAads.add(item.htmlKey); renderQuestions();
     requestAnimationFrame(()=>{
       const card=els.questions.querySelector(`.aad-card[data-key="${CSS.escape(key)}"]`);
       if(card){ card.scrollIntoView({behavior:'smooth',block:'center'}); card.classList.add('flash'); setTimeout(()=>card.classList.remove('flash'),1600); }
@@ -538,7 +577,7 @@
   async function saveAuditFromDialog(e){
     e.preventDefault(); if(!els.organizationName.value.trim()){els.organizationName.focus();return;}
     let a=currentAudit(); const editing=!!els.auditId.value;
-    if(!editing){a={id:uid(),templateId:T.templateId,formVersion:T.formatVersion,createdAt:nowIso(),createdBy:state.user?.email||'local',responses:{}};state.audits.unshift(a);state.activeAuditId=a.id;}
+    if(!editing){a={id:uid(),templateId:T.templateId,formVersion:T.formatVersion,createdAt:nowIso(),createdBy:state.user?.email||'local',responses:{}};state.audits.unshift(a);state.activeAuditId=a.id;state.expandedAads.clear();}
     Object.assign(a,{organizationName:els.organizationName.value.trim(),auditNo:els.auditNo.value.trim(),status:els.auditStatus.value,startDate:els.auditStartDate.value,endDate:els.auditEndDate.value,leadAuditor:els.leadAuditor.value.trim(),auditors:els.auditors.value.trim(),generalNote:els.auditGeneralNote.value.trim()});
     await persistAudit(a); els.auditDialog.close(); renderAll(); toast('Denetim kaydedildi.');
   }

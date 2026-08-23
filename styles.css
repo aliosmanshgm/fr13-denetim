@@ -105,3 +105,20 @@ details{margin-top:3px}details summary{font-size:11px;color:#536b80;cursor:point
   .autosave-indicator,.aad-result-pill{display:none!important}.human-dashboard{display:grid;grid-template-columns:1fr 1fr 1fr}.human-toolbar{display:none!important}
 }
 .badge.cloud.connected{background:#e8f7ee!important;color:#126b39!important;border:1px solid #8fc9a5}.badge.cloud.disconnected{background:#fff1ef!important;color:#a32c22!important;border:1px solid #e5a59f}
+
+
+/* ===== v10: AAD ikinci seviye akordiyon / insan faktörleri ===== */
+.aad-accordion{padding:0!important;border-bottom:1px solid #e5ebf0;overflow:hidden;transition:border-color .18s,background .18s,box-shadow .18s}
+.aad-accordion:last-child{border-bottom:0}.aad-accordion.expanded{background:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}
+.aad-accordion-head{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center;text-align:left;padding:13px 15px 12px;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;min-height:76px}
+.aad-accordion-head:hover{background:#f8fafc}.aad-accordion-head:focus-visible{outline:3px solid rgba(45,111,168,.22);outline-offset:-3px}
+.aad-accordion-main{min-width:0}.aad-accordion-main .aad-title{margin:0}.aad-summary-criterion{margin-top:5px;font-size:12px;line-height:1.42;color:#44596b;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.aad-summary-flags{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}.aad-summary-flags span{font-size:9px;font-weight:800;color:#627689;background:#f4f7f9;border:1px solid #e1e8ee;border-radius:999px;padding:2px 6px}.aad-summary-flags .muted{font-weight:650;color:#8a98a5;background:transparent;border-style:dashed}
+.aad-accordion-status{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap;max-width:470px}.aad-accordion-status .followup-badge{margin:0}.aad-accordion-status .aad-result-pill{margin:0}
+.aad-save-summary{display:inline-flex;align-items:center;min-height:26px;padding:0 7px;border-radius:7px;border:1px solid #dce4ea;background:#fafbfc;color:#7b8996;font-size:9px;font-weight:850;white-space:nowrap}.aad-save-summary.saved{color:#28734a;background:#f0f8f3;border-color:#bedbc8}.aad-save-summary.saving{color:#966615;background:#fff9eb;border-color:#ead2a1}.aad-save-summary.error{color:#a4342c;background:#fff3f1;border-color:#e6b0aa}
+.aad-chevron{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#eef3f7;color:#557086;font-size:15px;font-weight:900;transition:transform .18s}.aad-accordion.expanded .aad-chevron{background:#e4eff7;color:#285e8c}
+.aad-accordion-body{padding:0 17px 15px;border-top:1px solid #edf1f4;background:linear-gradient(180deg,#fff,#fdfefe)}.aad-accordion-body.hidden{display:none}.aad-detail-context{padding:13px 0 7px}.aad-detail-label{display:block;font-size:9px;letter-spacing:.07em;text-transform:uppercase;font-weight:900;color:#758797}.aad-detail-context .criterion{margin:5px 0 0;font-size:14px}
+.aad-accordion.result-Bulgu .aad-accordion-head{background:rgba(201,80,80,.025)}.aad-accordion.has-overdue .aad-accordion-head{background:#fff8f7}.aad-accordion.has-followup:not(.has-overdue) .aad-accordion-head{background:#fffdf8}
+@media(max-width:900px){.aad-accordion-head{grid-template-columns:1fr;gap:9px}.aad-accordion-status{justify-content:flex-start;max-width:none}.aad-save-summary{margin-left:auto}.aad-chevron{margin-left:0}}
+@media(max-width:560px){.aad-accordion-head{padding:11px 12px}.aad-accordion-status{gap:5px}.aad-save-summary{margin-left:0}.aad-summary-criterion{-webkit-line-clamp:3}.aad-accordion-body{padding:0 12px 13px}.aad-accordion-status .followup-badge,.aad-accordion-status .aad-result-pill{font-size:9px}}
+@media print{.aad-accordion-body.hidden{display:block!important}.aad-accordion-head{padding:8px 0}.aad-chevron,.aad-save-summary{display:none!important}.aad-accordion-body{padding:0;border-top:0}}
