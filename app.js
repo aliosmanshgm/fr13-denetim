@@ -18,13 +18,14 @@
     appHeader:$('appHeader'), appShell:$('appShell'), storageBadge:$('storageBadge'), saveStatusBadge:$('saveStatusBadge'), saveStatusDetail:$('saveStatusDetail'), currentUserLabel:$('currentUserLabel'), signOutBtn:$('signOutBtn'),
     auditList:$('auditList'), auditSearch:$('auditSearch'), newAuditBtn:$('newAuditBtn'), checklistManagerBtn:$('checklistManagerBtn'),
     emptyState:$('emptyState'), workspace:$('auditWorkspace'), auditNoLabel:$('auditNoLabel'), auditTitle:$('auditTitle'), auditMeta:$('auditMeta'),
-    editAuditBtn:$('editAuditBtn'), exportMenuBtn:$('exportMenuBtn'), exportMenu:$('exportMenu'), excelExportBtn:$('excelExportBtn'), pdfExportBtn:$('pdfExportBtn'), exportBtn:$('exportBtn'), printBtn:$('printBtn'),
+    editAuditBtn:$('editAuditBtn'), exportMenuBtn:$('exportMenuBtn'), exportMenu:$('exportMenu'), excelExportBtn:$('excelExportBtn'), pdfExportBtn:$('pdfExportBtn'), exportBtn:$('exportBtn'), printBtn:$('printBtn'), auditLockBanner:$('auditLockBanner'), auditLockDetail:$('auditLockDetail'), reopenAuditBtn:$('reopenAuditBtn'),
     workspaceNav:$('workspaceNav'), workspaceViewChecklist:$('workspaceViewChecklist'), workspaceViewFindings:$('workspaceViewFindings'), workspaceViewPending:$('workspaceViewPending'), workspaceViewSummary:$('workspaceViewSummary'), navChecklistCount:$('navChecklistCount'), navFindingCount:$('navFindingCount'), navPendingCount:$('navPendingCount'), workspaceQuickProgress:$('workspaceQuickProgress'), workspaceQuickAlert:$('workspaceQuickAlert'), summaryAuditStatus:$('summaryAuditStatus'), summaryFormVersion:$('summaryFormVersion'), summaryAuditors:$('summaryAuditors'), summaryGeneralNote:$('summaryGeneralNote'),
     kpiProgress:$('kpiProgress'), kpiCompliant:$('kpiCompliant'), kpiNoncompliant:$('kpiNoncompliant'), kpiNA:$('kpiNA'), kpiNotAsked:$('kpiNotAsked'), kpiRemote:$('kpiRemote'), kpiOnsite:$('kpiOnsite'),
     kpiPending:$('kpiPending'), kpiOverdue:$('kpiOverdue'), kpiUndated:$('kpiUndated'), auditProgressBar:$('auditProgressBar'), auditProgressPercent:$('auditProgressPercent'), findingSummaryPanel:$('findingSummaryPanel'), findingSummaryList:$('findingSummaryList'), findingSummaryAttention:$('findingSummaryAttention'), findingLevel1Count:$('findingLevel1Count'), findingLevel2Count:$('findingLevel2Count'), findingObservationCount:$('findingObservationCount'), showNoncompliantBtn:$('showNoncompliantBtn'), followUpPanel:$('followUpPanel'), followUpList:$('followUpList'), followUpAttention:$('followUpAttention'), showAllPendingBtn:$('showAllPendingBtn'),
     criterionSearch:$('criterionSearch'), typeFilter:$('typeFilter'), resultFilter:$('resultFilter'), followUpFilter:$('followUpFilter'), nextUnassessedBtn:$('nextUnassessedBtn'), expandAllBtn:$('expandAllBtn'), questions:$('questions'),
     auditDialog:$('auditDialog'), auditForm:$('auditForm'), auditDialogTitle:$('auditDialogTitle'), auditChecklistVersionHint:$('auditChecklistVersionHint'), auditId:$('auditId'), organizationName:$('organizationName'), auditNo:$('auditNo'),
-    auditStatus:$('auditStatus'), auditStartDate:$('auditStartDate'), auditEndDate:$('auditEndDate'), leadAuditor:$('leadAuditor'), auditors:$('auditors'), auditGeneralNote:$('auditGeneralNote'), deleteAuditBtn:$('deleteAuditBtn'),
+    auditStatus:$('auditStatus'), auditStartDate:$('auditStartDate'), auditEndDate:$('auditEndDate'), leadAuditor:$('leadAuditor'), auditors:$('auditors'), auditGeneralNote:$('auditGeneralNote'), deleteAuditBtn:$('deleteAuditBtn'), saveAuditBtn:$('saveAuditBtn'), reopenAuditDialogBtn:$('reopenAuditDialogBtn'), closedAuditDialogNote:$('closedAuditDialogNote'),
+    completionDialog:$('completionDialog'), completionDialogTitle:$('completionDialogTitle'), completionHero:$('completionHero'), completionBlockerCount:$('completionBlockerCount'), completionWarningCount:$('completionWarningCount'), completionBlockerList:$('completionBlockerList'), completionWarningList:$('completionWarningList'), completionInfo:$('completionInfo'), completionGoChecklistBtn:$('completionGoChecklistBtn'), completionCancelBtn:$('completionCancelBtn'), completionConfirmBtn:$('completionConfirmBtn'), completionCloseX:$('completionCloseX'),
     checklistDialog:$('checklistDialog'), checklistCloseBtn:$('checklistCloseBtn'), checklistActiveName:$('checklistActiveName'), checklistActiveMeta:$('checklistActiveMeta'), checklistActiveNote:$('checklistActiveNote'), checklistExportBtn:$('checklistExportBtn'), checklistExcelInput:$('checklistExcelInput'), checklistVersionName:$('checklistVersionName'), checklistVersionNotes:$('checklistVersionNotes'), checklistImportStatus:$('checklistImportStatus'), checklistDiffSummary:$('checklistDiffSummary'), checklistDiffTable:$('checklistDiffTable'), checklistPublishBtn:$('checklistPublishBtn'), checklistClearDraftBtn:$('checklistClearDraftBtn'), checklistVersionList:$('checklistVersionList'), checklistCloudStatus:$('checklistCloudStatus'),
     toast:$('toast')
   };
@@ -55,6 +56,7 @@
     }
   }
   function currentAudit(){ return state.audits.find(a=>a.id===state.activeAuditId); }
+  function isAuditClosed(a=currentAudit()){ return !!a && a.status==='Kapatıldı'; }
   function deepClone(v){ return JSON.parse(JSON.stringify(v)); }
   function auditCriteria(a){ return (a && Array.isArray(a.checklistSnapshot) && a.checklistSnapshot.length) ? a.checklistSnapshot : BUNDLED_CRITERIA; }
   function activateAuditCriteria(a){ criteria = a ? auditCriteria(a) : (masterChecklist?.data || BUNDLED_CRITERIA); }
@@ -277,6 +279,44 @@
     return missing;
   }
   function resultIcon(result){ return ({'Uygun':'✓','Uygun Değil':'!','N/A':'—','Sorulmadı':'?'})[result]||'○'; }
+  function buildCompletionReport(a){
+    activateAuditCriteria(a);
+    const missingResults=[], incompleteFindings=[], openFollowUps=[];
+    let na=0, notAsked=0, level1=0, level2=0, observation=0;
+    criteria.forEach(i=>{
+      const r=getResponse(a,i.htmlKey);
+      if(!r.result) missingResults.push({key:i.htmlKey,label:`${i.shortCode} / ${i.aadCode}`,detail:'Değerlendirme sonucu seçilmedi.'});
+      else if(isNoncompliant(r) && !isFindingComplete(r)) incompleteFindings.push({key:i.htmlKey,label:`${i.shortCode} / ${i.aadCode}`,detail:'Eksik: '+findingMissingFields(r).join(', ')});
+      if(r.result==='N/A') na++; if(r.result==='Sorulmadı') notAsked++;
+      if(isFindingComplete(r)){ if(r.findingLevel==='Seviye 1') level1++; if(r.findingLevel==='Seviye 2') level2++; if(r.findingLevel==='Gözlem') observation++; }
+      const timing=followUpTiming(r);
+      if(isOpenFollowUpTiming(timing)) openFollowUps.push({key:i.htmlKey,label:`${i.shortCode} / ${i.aadCode}`,detail:`${followUpLabel(r)}${r.reminderDate?' • '+formatDate(r.reminderDate):''}`,timing});
+    });
+    return {missingResults,incompleteFindings,openFollowUps,blockerCount:missingResults.length+incompleteFindings.length,warningCount:openFollowUps.length,na,notAsked,level1,level2,observation,total:criteria.length};
+  }
+  let completionResolver=null; let activeCompletionReport=null;
+  function completionItemHtml(item,type){ return `<button type="button" class="completion-item ${type}" data-key="${esc(item.key)}"><strong>${esc(item.label)}</strong><span>${esc(item.detail)}</span><b aria-hidden="true">→</b></button>`; }
+  function showCompletionDialog(a){
+    const report=buildCompletionReport(a); activeCompletionReport=report;
+    const blockers=[...report.missingResults.map(x=>({...x,type:'result'})),...report.incompleteFindings.map(x=>({...x,type:'finding'}))];
+    if(els.completionBlockerCount) els.completionBlockerCount.textContent=report.blockerCount;
+    if(els.completionWarningCount) els.completionWarningCount.textContent=report.warningCount;
+    if(els.completionBlockerList) els.completionBlockerList.innerHTML=blockers.length?blockers.map(x=>completionItemHtml(x,'blocker')).join(''):'<div class="completion-empty ok">✓ Engelleyici eksik bulunmuyor.</div>';
+    if(els.completionWarningList) els.completionWarningList.innerHTML=report.openFollowUps.length?report.openFollowUps.map(x=>completionItemHtml(x,'warning')).join(''):'<div class="completion-empty ok">✓ Açık takip / beklenen husus bulunmuyor.</div>';
+    if(els.completionHero){
+      els.completionHero.className='completion-hero '+(report.blockerCount?'blocked':report.warningCount?'warning':'ready');
+      els.completionHero.innerHTML=report.blockerCount?`<strong>Denetim henüz kapatılamaz.</strong><span>${report.blockerCount} engelleyici eksik tamamlanmalıdır.</span>`:report.warningCount?`<strong>Denetim kapatılmaya hazır.</strong><span>${report.warningCount} açık takip bulunuyor; bunlar kapanışı engellemez.</span>`:`<strong>Denetim kapatılmaya hazır.</strong><span>Tüm AAD değerlendirmeleri ve zorunlu bulgu bilgileri tamamlandı.</span>`;
+    }
+    if(els.completionInfo) els.completionInfo.innerHTML=`<span><b>${report.total}</b> AAD</span><span><b>${report.na}</b> N/A</span><span><b>${report.notAsked}</b> Sorulmadı</span><span><b>${report.level1}</b> Seviye 1</span><span><b>${report.level2}</b> Seviye 2</span><span><b>${report.observation}</b> Gözlem</span>`;
+    if(els.completionConfirmBtn){ els.completionConfirmBtn.disabled=report.blockerCount>0; els.completionConfirmBtn.textContent=report.warningCount?'Uyarıları gördüm, denetimi kapat':'Denetimi kapat'; }
+    els.completionDialog?.querySelectorAll('.completion-item').forEach(btn=>btn.onclick=()=>{ const key=btn.dataset.key; finishCompletionDialog(false); els.auditDialog?.close(); state.workspaceView='checklist'; applyWorkspaceView(); goToAad(key); });
+    if(els.completionDialog && !els.completionDialog.open) els.completionDialog.showModal();
+    return new Promise(resolve=>{ completionResolver=resolve; });
+  }
+  function finishCompletionDialog(value){
+    if(els.completionDialog?.open) els.completionDialog.close();
+    const resolve=completionResolver; completionResolver=null; activeCompletionReport=null; if(resolve) resolve(!!value);
+  }
   function hasFollowUp(r){ return !!String(r.followUpText||'').trim(); }
   function effectiveFollowUpStatus(r){ return hasFollowUp(r) ? (r.followUpStatus || 'Bekleniyor') : ''; }
   function followUpTiming(r){
@@ -361,6 +401,11 @@
     if(els.summaryFormVersion) els.summaryFormVersion.textContent=`${a.templateId||T.templateId||'FR.13'} • ${a.checklistVersionName||a.formVersion||T.formatVersion||'—'}`;
     if(els.summaryAuditors) els.summaryAuditors.textContent=[a.leadAuditor,a.auditors].filter(Boolean).join(' • ')||'Denetim ekibi girilmedi.';
     if(els.summaryGeneralNote) els.summaryGeneralNote.textContent=a.generalNote||'Genel denetim notu girilmedi.';
+    const locked=isAuditClosed(a);
+    els.workspace.classList.toggle('audit-locked',locked);
+    if(els.auditLockBanner) els.auditLockBanner.classList.toggle('hidden',!locked);
+    if(els.auditLockDetail && locked) els.auditLockDetail.textContent=`AAD değerlendirmeleri ve denetim bilgileri değiştirilemez${a.closedAt?' • Kapanış: '+new Date(a.closedAt).toLocaleString('tr-TR'):''}.`;
+    if(els.editAuditBtn) els.editAuditBtn.textContent=locked?'🔒 Denetim bilgileri':'Denetim bilgileri';
     renderFindingSummaryPanel(); renderFollowUpPanel(); renderQuestions(); updateKpis(); applyWorkspaceView();
   }
 
@@ -403,6 +448,13 @@
       const chevron=block.querySelector('.question-chevron'); if(chevron) chevron.textContent=body.classList.contains('hidden')?'⌄':'⌃';
     });
     bindResponseInputs();
+    applyAuditReadOnlyState();
+  }
+  function applyAuditReadOnlyState(){
+    const locked=isAuditClosed();
+    if(!els.questions) return;
+    els.questions.classList.toggle('readonly-mode',locked);
+    els.questions.querySelectorAll('.response-input,.result-btn,.result-clear,.finding-level-btn,.followup-date-btn,.followup-action-btn').forEach(el=>{ el.disabled=locked; });
   }
   function renderAad(i,r){
     const result=r.result||''; const hasTask=hasFollowUp(r); const taskClass=followUpClass(r); const taskLabel=followUpLabel(r);
@@ -544,7 +596,9 @@
   }
   const saveTimers={};
   function scheduleResponseSave(card,inp,immediate=false){
-    const key=card.dataset.key; const a=currentAudit(); const r=getResponse(a,key); const field=inp.dataset.field; const previousText=r.followUpText||'';
+    const key=card.dataset.key; const a=currentAudit();
+    if(isAuditClosed(a)){ toast('Bu denetim kapatılmıştır. Değişiklik için önce denetimi yeniden açın.'); renderQuestions(); return; }
+    const r=getResponse(a,key); const field=inp.dataset.field; const previousText=r.followUpText||'';
     r[field]=inp.value; r.updatedAt=nowIso();
     // İnsan faktörleri / veri güvenliği: her veri girişi önce aynı anda yerel yedeğe alınır.
     // Firebase yazımı kısa debounce sonrasında yapılır; sekme aniden kapansa dahi son giriş localStorage'da kalır.
@@ -749,11 +803,12 @@
       <td><div class="followup-task-text">${esc(r.followUpText)}</div>${r.followUpCreatedAt?`<small class="followup-created">Açılış: ${new Date(r.followUpCreatedAt).toLocaleDateString('tr-TR')}</small>`:''}</td>
       <td>${r.reminderDate?formatDate(r.reminderDate):'<span class="followup-no-date">Tarih yok</span>'}</td>
       <td><span class="followup-badge ${timing}">${esc(followUpLabel(r))}</span></td>
-      <td><button type="button" class="followup-table-action" data-key="${esc(i.htmlKey)}">✓ Tamamla</button></td>
+      <td><button type="button" class="followup-table-action" data-key="${esc(i.htmlKey)}" ${isAuditClosed(a)?'disabled':''}>✓ Tamamla</button></td>
     </tr>`).join('') : '<tr><td colspan="5" class="workspace-empty-row">Açık Takip / Beklenen Husus bulunmuyor.</td></tr>';
     els.followUpList.querySelectorAll('.followup-row').forEach(row=>row.onclick=()=>goToAad(row.dataset.key));
     els.followUpList.querySelectorAll('.followup-table-action').forEach(btn=>btn.onclick=async(e)=>{
       e.stopPropagation();
+      if(isAuditClosed(a)){ toast('Bu denetim kapatılmıştır. Takip kaydı değiştirilemez.'); return; }
       const key=btn.dataset.key; const r=getResponse(a,key);
       r.followUpStatus='Tamamlandı'; r.completedAt=r.completedAt||nowIso(); r.updatedAt=nowIso();
       btn.disabled=true; btn.textContent='Kaydediliyor…'; setSaveStatus('saving');
@@ -788,19 +843,43 @@
     els.auditId.value=a?.id||''; els.organizationName.value=a?.organizationName||'';
     els.auditNo.value=a?.auditNo||''; els.auditStatus.value=a?.status||'Taslak'; els.auditStartDate.value=a?.startDate||''; els.auditEndDate.value=a?.endDate||'';
     els.leadAuditor.value=a?.leadAuditor||''; els.auditors.value=a?.auditors||''; els.auditGeneralNote.value=a?.generalNote||'';
-    if(els.deleteAuditBtn) els.deleteAuditBtn.classList.toggle('hidden',!a);
+    const locked=!!a && isAuditClosed(a);
+    [els.organizationName,els.auditNo,els.auditStatus,els.auditStartDate,els.auditEndDate,els.leadAuditor,els.auditors,els.auditGeneralNote].forEach(el=>{ if(el) el.disabled=locked; });
+    if(els.deleteAuditBtn) els.deleteAuditBtn.classList.toggle('hidden',!a || locked);
+    if(els.saveAuditBtn) els.saveAuditBtn.classList.toggle('hidden',locked);
+    if(els.reopenAuditDialogBtn) els.reopenAuditDialogBtn.classList.toggle('hidden',!locked);
+    if(els.closedAuditDialogNote) els.closedAuditDialogNote.classList.toggle('hidden',!locked);
     els.auditDialog.showModal();
   }
   async function saveAuditFromDialog(e){
     e.preventDefault(); if(!els.organizationName.value.trim()){els.organizationName.focus();return;}
     let a=currentAudit(); const editing=!!els.auditId.value;
+    if(editing && isAuditClosed(a)){ toast('Kapatılmış denetim salt okunurdur. Önce yeniden açın.'); return; }
     if(!editing){
       const activeMaster=masterChecklist && Array.isArray(masterChecklist.data) ? masterChecklist : initialChecklistVersion();
-      a={id:uid(),templateId:T.templateId,formVersion:activeMaster.formatVersion||activeMaster.versionName||T.formatVersion,checklistVersionId:activeMaster.versionId,checklistVersionName:activeMaster.versionName,checklistSnapshot:deepClone(activeMaster.data),createdAt:nowIso(),createdBy:state.user?.email||'local',responses:{}};
+      a={id:uid(),templateId:T.templateId,formVersion:activeMaster.formatVersion||activeMaster.versionName||T.formatVersion,checklistVersionId:activeMaster.versionId,checklistVersionName:activeMaster.versionName,checklistSnapshot:deepClone(activeMaster.data),createdAt:nowIso(),createdBy:state.user?.email||'local',responses:{},status:'Taslak'};
       state.audits.unshift(a);state.activeAuditId=a.id;state.expandedAads.clear();state.workspaceView='checklist';activateAuditCriteria(a);
     }
-    Object.assign(a,{organizationName:els.organizationName.value.trim(),auditNo:els.auditNo.value.trim(),status:els.auditStatus.value,startDate:els.auditStartDate.value,endDate:els.auditEndDate.value,leadAuditor:els.leadAuditor.value.trim(),auditors:els.auditors.value.trim(),generalNote:els.auditGeneralNote.value.trim()});
-    await persistAudit(a); els.auditDialog.close(); renderAll(); toast('Denetim kaydedildi.');
+    const targetStatus=els.auditStatus.value;
+    const previousStatus=a.status||'Taslak';
+    // Kapatma kontrolü başarısız olsa bile yeni denetimin üst bilgileri çalışma alanına taşınabilsin; durum ancak onaydan sonra Kapatıldı olur.
+    Object.assign(a,{organizationName:els.organizationName.value.trim(),auditNo:els.auditNo.value.trim(),startDate:els.auditStartDate.value,endDate:els.auditEndDate.value,leadAuditor:els.leadAuditor.value.trim(),auditors:els.auditors.value.trim(),generalNote:els.auditGeneralNote.value.trim()});
+    if(targetStatus==='Kapatıldı' && previousStatus!=='Kapatıldı'){
+      const approved=await showCompletionDialog(a);
+      if(!approved) return;
+      a.statusBeforeClose=previousStatus==='Kapatıldı'?'Devam Ediyor':previousStatus;
+      a.closedAt=nowIso(); a.closedBy=state.user?.email||'local';
+    }
+    a.status=targetStatus;
+    await persistAudit(a); els.auditDialog.close(); renderAll(); toast(targetStatus==='Kapatıldı'?'Denetim kapatıldı ve salt okunur hale getirildi.':'Denetim kaydedildi.');
+  }
+  async function reopenCurrentAudit(){
+    const a=currentAudit(); if(!a || !isAuditClosed(a)) return;
+    if(!window.confirm('Bu denetimi yeniden açmak istediğinize emin misiniz?\n\nAAD değerlendirmeleri ve denetim bilgileri yeniden düzenlenebilir hale gelecektir.')) return;
+    const restore=(a.statusBeforeClose && a.statusBeforeClose!=='Kapatıldı')?a.statusBeforeClose:'Devam Ediyor';
+    a.status=restore; a.reopenedAt=nowIso(); a.reopenedBy=state.user?.email||'local';
+    try{ setSaveStatus('saving'); await persistAudit(a); if(els.auditDialog?.open) els.auditDialog.close(); renderAll(); setSaveStatus(state.offlineMode?'local':'saved'); toast(`Denetim yeniden açıldı • Durum: ${restore}`); }
+    catch(err){ console.error(err); setSaveStatus('error'); toast('Denetim yeniden açılamadı.'); }
   }
 
   async function deleteCurrentAudit(){
@@ -1192,6 +1271,10 @@
   }
 
   els.newAuditBtn.onclick=()=>openAuditDialog(); els.editAuditBtn.onclick=()=>openAuditDialog(currentAudit()); els.auditForm.addEventListener('submit',saveAuditFromDialog); if(els.deleteAuditBtn) els.deleteAuditBtn.onclick=deleteCurrentAudit;
+  if(els.reopenAuditBtn) els.reopenAuditBtn.onclick=reopenCurrentAudit; if(els.reopenAuditDialogBtn) els.reopenAuditDialogBtn.onclick=reopenCurrentAudit;
+  if(els.completionCancelBtn) els.completionCancelBtn.onclick=()=>finishCompletionDialog(false); if(els.completionCloseX) els.completionCloseX.onclick=()=>finishCompletionDialog(false); if(els.completionConfirmBtn) els.completionConfirmBtn.onclick=()=>finishCompletionDialog(true);
+  if(els.completionDialog) els.completionDialog.addEventListener('cancel',e=>{ e.preventDefault(); finishCompletionDialog(false); });
+  if(els.completionGoChecklistBtn) els.completionGoChecklistBtn.onclick=()=>{ const first=activeCompletionReport?.missingResults?.[0]||activeCompletionReport?.incompleteFindings?.[0]; finishCompletionDialog(false); if(els.auditDialog?.open) els.auditDialog.close(); state.workspaceView='checklist'; applyWorkspaceView(); if(first) goToAad(first.key); else scrollWorkspaceTop(); };
   if(els.checklistManagerBtn) els.checklistManagerBtn.onclick=openChecklistManager;
   if(els.checklistCloseBtn) els.checklistCloseBtn.onclick=()=>els.checklistDialog.close();
   if(els.checklistExportBtn) els.checklistExportBtn.onclick=exportCurrentChecklistExcel;
