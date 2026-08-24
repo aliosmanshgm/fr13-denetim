@@ -3,7 +3,8 @@
   const criteria = T.data;
   const STORAGE_KEY = 'fr13_audit_app_v1';
   const PENDING_SYNC_KEY = 'fr13_audit_pending_sync_v1';
-  const state = { audits: [], activeAuditId: null, firebase: null, firebaseConnected: false, user: null, offlineMode: false, expanded: new Set(), expandedAads: new Set() };
+  const UI_STATE_KEY = 'fr13_audit_ui_v14';
+  const state = { audits: [], activeAuditId: null, firebase: null, firebaseConnected: false, user: null, offlineMode: false, expanded: new Set(), expandedAads: new Set(), workspaceView:'checklist', lastAadByAudit:{} };
 
   const $ = (id) => document.getElementById(id);
   const els = {
@@ -11,7 +12,8 @@
     appHeader:$('appHeader'), appShell:$('appShell'), storageBadge:$('storageBadge'), saveStatusBadge:$('saveStatusBadge'), saveStatusDetail:$('saveStatusDetail'), currentUserLabel:$('currentUserLabel'), signOutBtn:$('signOutBtn'),
     auditList:$('auditList'), auditSearch:$('auditSearch'), newAuditBtn:$('newAuditBtn'),
     emptyState:$('emptyState'), workspace:$('auditWorkspace'), auditNoLabel:$('auditNoLabel'), auditTitle:$('auditTitle'), auditMeta:$('auditMeta'),
-    editAuditBtn:$('editAuditBtn'), excelExportBtn:$('excelExportBtn'), pdfExportBtn:$('pdfExportBtn'), exportBtn:$('exportBtn'), printBtn:$('printBtn'),
+    editAuditBtn:$('editAuditBtn'), exportMenuBtn:$('exportMenuBtn'), exportMenu:$('exportMenu'), excelExportBtn:$('excelExportBtn'), pdfExportBtn:$('pdfExportBtn'), exportBtn:$('exportBtn'), printBtn:$('printBtn'),
+    workspaceNav:$('workspaceNav'), workspaceViewChecklist:$('workspaceViewChecklist'), workspaceViewFindings:$('workspaceViewFindings'), workspaceViewPending:$('workspaceViewPending'), workspaceViewSummary:$('workspaceViewSummary'), navChecklistCount:$('navChecklistCount'), navFindingCount:$('navFindingCount'), navPendingCount:$('navPendingCount'), workspaceQuickProgress:$('workspaceQuickProgress'), workspaceQuickAlert:$('workspaceQuickAlert'), summaryAuditStatus:$('summaryAuditStatus'), summaryFormVersion:$('summaryFormVersion'), summaryAuditors:$('summaryAuditors'), summaryGeneralNote:$('summaryGeneralNote'),
     kpiProgress:$('kpiProgress'), kpiCompliant:$('kpiCompliant'), kpiNoncompliant:$('kpiNoncompliant'), kpiNA:$('kpiNA'), kpiNotAsked:$('kpiNotAsked'), kpiRemote:$('kpiRemote'), kpiOnsite:$('kpiOnsite'),
     kpiPending:$('kpiPending'), kpiOverdue:$('kpiOverdue'), kpiUndated:$('kpiUndated'), auditProgressBar:$('auditProgressBar'), auditProgressPercent:$('auditProgressPercent'), findingSummaryPanel:$('findingSummaryPanel'), findingSummaryList:$('findingSummaryList'), findingSummaryAttention:$('findingSummaryAttention'), findingLevel1Count:$('findingLevel1Count'), findingLevel2Count:$('findingLevel2Count'), findingObservationCount:$('findingObservationCount'), showNoncompliantBtn:$('showNoncompliantBtn'), followUpPanel:$('followUpPanel'), followUpList:$('followUpList'), followUpAttention:$('followUpAttention'), showAllPendingBtn:$('showAllPendingBtn'),
     criterionSearch:$('criterionSearch'), typeFilter:$('typeFilter'), resultFilter:$('resultFilter'), followUpFilter:$('followUpFilter'), nextUnassessedBtn:$('nextUnassessedBtn'), expandAllBtn:$('expandAllBtn'), questions:$('questions'),
@@ -71,6 +73,16 @@
   }
 
   function saveLocal(){ localStorage.setItem(STORAGE_KEY, JSON.stringify({audits:state.audits, activeAuditId:state.activeAuditId})); }
+  function saveUiState(){
+    try{ localStorage.setItem(UI_STATE_KEY,JSON.stringify({lastAadByAudit:state.lastAadByAudit||{}})); }catch{}
+  }
+  function loadUiState(){
+    try{ const d=JSON.parse(localStorage.getItem(UI_STATE_KEY)||'{}'); state.lastAadByAudit=d.lastAadByAudit||{}; }catch{ state.lastAadByAudit={}; }
+  }
+  function rememberAad(key){
+    const a=currentAudit(); if(!a || !key) return;
+    state.lastAadByAudit[a.id]=key; saveUiState();
+  }
   function pendingSyncIds(){ try{return new Set(JSON.parse(localStorage.getItem(PENDING_SYNC_KEY)||'[]'));}catch{return new Set();} }
   function setPendingSyncIds(set){ localStorage.setItem(PENDING_SYNC_KEY,JSON.stringify([...set])); }
   function markPendingSync(id){ if(!id)return; const set=pendingSyncIds(); set.add(id); setPendingSyncIds(set); }
@@ -246,14 +258,48 @@
         <small>${esc(a.startDate||'Tarih yok')} ${a.leadAuditor?'• '+esc(a.leadAuditor):''}</small>
       </div>`;
     }).join('') || '<div class="no-results">Denetim bulunamadı.</div>';
-    els.auditList.querySelectorAll('.audit-item').forEach(x=>x.onclick=()=>{state.activeAuditId=x.dataset.id; state.expandedAads.clear(); saveLocal(); renderAll();});
+    els.auditList.querySelectorAll('.audit-item').forEach(x=>x.onclick=()=>{state.activeAuditId=x.dataset.id; state.expandedAads.clear(); state.workspaceView='checklist'; saveLocal(); renderAll();});
+  }
+
+  function applyWorkspaceView(){
+    const map={checklist:els.workspaceViewChecklist,findings:els.workspaceViewFindings,pending:els.workspaceViewPending,summary:els.workspaceViewSummary};
+    Object.entries(map).forEach(([name,node])=>node?.classList.toggle('hidden',name!==state.workspaceView));
+    document.querySelectorAll('.workspace-tab').forEach(btn=>{
+      const active=btn.dataset.workspaceView===state.workspaceView; btn.classList.toggle('active',active); btn.setAttribute('aria-selected',active?'true':'false');
+    });
+  }
+  function scrollWorkspaceTop(){
+    if(!els.workspaceNav) return;
+    requestAnimationFrame(()=>{
+      const y=els.workspaceNav.getBoundingClientRect().top+window.scrollY-82;
+      window.scrollTo({top:Math.max(0,y),behavior:'smooth'});
+    });
+  }
+  function restoreLastAadPosition(){
+    const a=currentAudit(); if(!a || state.workspaceView!=='checklist') return;
+    const key=state.lastAadByAudit?.[a.id]; if(!key){ scrollWorkspaceTop(); return; }
+    const item=criteria.find(i=>i.htmlKey===key);
+    if(item){ state.expanded.add(item.questionCode); state.expandedAads.add(key); renderQuestions(); }
+    requestAnimationFrame(()=>{
+      const card=els.questions.querySelector(`.aad-card[data-key="${CSS.escape(key)}"]`);
+      if(card) card.scrollIntoView({behavior:'smooth',block:'center'}); else scrollWorkspaceTop();
+    });
+  }
+  function setWorkspaceView(view,{restore=true}={}){
+    if(!['checklist','findings','pending','summary'].includes(view)) view='checklist';
+    state.workspaceView=view; applyWorkspaceView();
+    if(view==='checklist' && restore) restoreLastAadPosition(); else if(view!=='checklist') scrollWorkspaceTop();
   }
 
   function renderWorkspace(){
     const a=currentAudit(); els.emptyState.classList.toggle('hidden',!!a); els.workspace.classList.toggle('hidden',!a); if(!a)return;
     els.auditNoLabel.textContent=a.auditNo||'DENETİM'; els.auditTitle.textContent=a.organizationName||'-';
     els.auditMeta.textContent=[a.startDate&&('Başlangıç: '+formatDate(a.startDate)),a.endDate&&('Bitiş: '+formatDate(a.endDate)),a.leadAuditor&&('Baş denetçi: '+a.leadAuditor),a.status].filter(Boolean).join(' • ');
-    renderFindingSummaryPanel(); renderFollowUpPanel(); renderQuestions(); updateKpis();
+    if(els.summaryAuditStatus) els.summaryAuditStatus.textContent=a.status||'Taslak';
+    if(els.summaryFormVersion) els.summaryFormVersion.textContent=`${a.templateId||T.templateId||'FR.13'} • ${a.formVersion||T.formatVersion||'—'}`;
+    if(els.summaryAuditors) els.summaryAuditors.textContent=[a.leadAuditor,a.auditors].filter(Boolean).join(' • ')||'Denetim ekibi girilmedi.';
+    if(els.summaryGeneralNote) els.summaryGeneralNote.textContent=a.generalNote||'Genel denetim notu girilmedi.';
+    renderFindingSummaryPanel(); renderFollowUpPanel(); renderQuestions(); updateKpis(); applyWorkspaceView();
   }
 
   function matchesFilters(item,r){
@@ -388,8 +434,9 @@
         body.classList.toggle('hidden',!opening); card.classList.toggle('expanded',opening);
         accordionHead.setAttribute('aria-expanded',opening?'true':'false');
         const chevron=card.querySelector('.aad-chevron'); if(chevron) chevron.textContent=opening?'⌃':'⌄';
-        if(opening) state.expandedAads.add(key); else state.expandedAads.delete(key);
+        if(opening){ state.expandedAads.add(key); rememberAad(key); } else state.expandedAads.delete(key);
       });
+      card.addEventListener('focusin',()=>rememberAad(card.dataset.key));
       card.querySelectorAll('.response-input').forEach(inp=>{
         inp.addEventListener('input',()=>scheduleResponseSave(card,inp));
         inp.addEventListener('change',()=>scheduleResponseSave(card,inp,true));
@@ -574,6 +621,17 @@
     els.kpiOverdue.closest('.overview-metric')?.classList.toggle('has-value',overdue>0);
     els.kpiPending.closest('.overview-metric')?.classList.toggle('has-value',pending>0);
     els.kpiUndated.closest('.overview-metric')?.classList.toggle('has-value',undated>0);
+    let level1=0, level2=0, observation=0, incompleteFinding=0;
+    criteria.forEach(i=>{ const r=getResponse(a,i.htmlKey); if(isNoncompliant(r)){ if(r.findingLevel==='Seviye 1'&&isFindingComplete(r)) level1++; if(r.findingLevel==='Seviye 2'&&isFindingComplete(r)) level2++; if(r.findingLevel==='Gözlem'&&isFindingComplete(r)) observation++; if(!isFindingComplete(r)) incompleteFinding++; } });
+    if(els.navChecklistCount) els.navChecklistCount.textContent=`${assessed}/${criteria.length}`;
+    if(els.navFindingCount){ els.navFindingCount.textContent=noncompliant; els.navFindingCount.classList.toggle('danger',level1>0||incompleteFinding>0); }
+    if(els.navPendingCount){ els.navPendingCount.textContent=pending; els.navPendingCount.classList.toggle('danger',overdue>0); els.navPendingCount.classList.toggle('warn',!overdue&&undated>0); }
+    if(els.workspaceQuickProgress) els.workspaceQuickProgress.textContent=`${assessed}/${criteria.length} değerlendirildi`;
+    if(els.workspaceQuickAlert){
+      const bits=[]; if(level1) bits.push(`${level1} S1`); if(incompleteFinding) bits.push(`${incompleteFinding} eksik tespit`); if(overdue) bits.push(`${overdue} gecikmiş`);
+      els.workspaceQuickAlert.textContent=bits.length?bits.join(' • '):'Kritik uyarı yok';
+      els.workspaceQuickAlert.className='workspace-quick-alert'+(level1||overdue?' danger':incompleteFinding?' warn':'');
+    }
   }
 
   function renderFindingSummaryPanel(){
@@ -586,17 +644,16 @@
     const level2=rows.filter(x=>x.r.findingLevel==='Seviye 2'&&x.complete).length;
     const observations=rows.filter(x=>x.r.findingLevel==='Gözlem'&&x.complete).length;
     const incomplete=rows.filter(x=>!x.complete).length;
-    els.findingSummaryPanel.classList.toggle('hidden',rows.length===0);
     if(els.findingLevel1Count) els.findingLevel1Count.textContent=level1;
     if(els.findingLevel2Count) els.findingLevel2Count.textContent=level2;
     if(els.findingObservationCount) els.findingObservationCount.textContent=observations;
     if(els.findingSummaryAttention){ els.findingSummaryAttention.textContent=incomplete?`• ${incomplete} bulgu kaydında zorunlu bilgi eksik`:''; els.findingSummaryAttention.className='finding-summary-attention'+(incomplete?' danger':''); }
-    els.findingSummaryList.innerHTML=rows.map(({i,r,complete})=>`<tr class="finding-summary-row ${complete?'':'incomplete'}" data-key="${esc(i.htmlKey)}">
+    els.findingSummaryList.innerHTML=rows.length ? rows.map(({i,r,complete})=>`<tr class="finding-summary-row ${complete?'':'incomplete'}" data-key="${esc(i.htmlKey)}">
       <td><strong>${esc(i.shortCode)} / ${esc(i.aadCode)}</strong></td>
       <td>${r.findingLevel?`<span class="finding-level-badge level-${esc(r.findingLevel.replace(/\s+/g,'-'))}">${esc(r.findingLevel)}</span>`:'<span class="finding-missing">Seviye seçilmedi</span>'}</td>
       <td>${r.predefinedFinding?esc(r.predefinedFinding):'<span class="finding-missing">Eksik</span>'}</td>
       <td>${r.findingDescription?esc(r.findingDescription):'<span class="finding-missing">Eksik</span>'}</td>
-    </tr>`).join('');
+    </tr>`).join('') : '<tr><td colspan="4" class="workspace-empty-row">Henüz Uygun Değil olarak değerlendirilen bir AAD bulunmuyor.</td></tr>';
     els.findingSummaryList.querySelectorAll('.finding-summary-row').forEach(row=>row.onclick=()=>goToAad(row.dataset.key));
   }
 
@@ -616,7 +673,6 @@
     const overdueCount=rows.filter(x=>x.timing==='overdue').length;
     const todayCount=rows.filter(x=>x.timing==='today').length;
     const undatedCount=rows.filter(x=>x.timing==='undated').length;
-    els.followUpPanel.classList.toggle('hidden',rows.length===0);
     if(els.followUpAttention){
       const bits=[];
       if(overdueCount) bits.push(`${overdueCount} gecikmiş`);
@@ -625,13 +681,13 @@
       els.followUpAttention.textContent=bits.length ? '• '+bits.join(' • ') : '';
       els.followUpAttention.className='followup-attention'+(overdueCount?' danger':undatedCount?' warn':'');
     }
-    els.followUpList.innerHTML=rows.map(({i,r,timing})=>`<tr class="followup-row ${timing}" data-key="${esc(i.htmlKey)}">
+    els.followUpList.innerHTML=rows.length ? rows.map(({i,r,timing})=>`<tr class="followup-row ${timing}" data-key="${esc(i.htmlKey)}">
       <td><strong>${esc(i.shortCode)} / ${esc(i.aadCode)}</strong></td>
       <td><div class="followup-task-text">${esc(r.followUpText)}</div>${r.followUpCreatedAt?`<small class="followup-created">Açılış: ${new Date(r.followUpCreatedAt).toLocaleDateString('tr-TR')}</small>`:''}</td>
       <td>${r.reminderDate?formatDate(r.reminderDate):'<span class="followup-no-date">Tarih yok</span>'}</td>
       <td><span class="followup-badge ${timing}">${esc(followUpLabel(r))}</span></td>
       <td><button type="button" class="followup-table-action" data-key="${esc(i.htmlKey)}">✓ Tamamla</button></td>
-    </tr>`).join('');
+    </tr>`).join('') : '<tr><td colspan="5" class="workspace-empty-row">Açık Takip / Beklenen Husus bulunmuyor.</td></tr>';
     els.followUpList.querySelectorAll('.followup-row').forEach(row=>row.onclick=()=>goToAad(row.dataset.key));
     els.followUpList.querySelectorAll('.followup-table-action').forEach(btn=>btn.onclick=async(e)=>{
       e.stopPropagation();
@@ -655,6 +711,7 @@
     const item=criteria.find(i=>i.htmlKey===key); if(!item)return;
     const currentType=els.typeFilter.value;
     els.criterionSearch.value=''; els.typeFilter.value=options.preserveType?currentType:'all'; els.resultFilter.value='all'; els.followUpFilter.value='all';
+    state.workspaceView='checklist'; applyWorkspaceView(); rememberAad(item.htmlKey);
     state.expanded.add(item.questionCode); state.expandedAads.add(item.htmlKey); renderQuestions();
     requestAnimationFrame(()=>{
       const card=els.questions.querySelector(`.aad-card[data-key="${CSS.escape(key)}"]`);
@@ -672,7 +729,7 @@
   async function saveAuditFromDialog(e){
     e.preventDefault(); if(!els.organizationName.value.trim()){els.organizationName.focus();return;}
     let a=currentAudit(); const editing=!!els.auditId.value;
-    if(!editing){a={id:uid(),templateId:T.templateId,formVersion:T.formatVersion,createdAt:nowIso(),createdBy:state.user?.email||'local',responses:{}};state.audits.unshift(a);state.activeAuditId=a.id;state.expandedAads.clear();}
+    if(!editing){a={id:uid(),templateId:T.templateId,formVersion:T.formatVersion,createdAt:nowIso(),createdBy:state.user?.email||'local',responses:{}};state.audits.unshift(a);state.activeAuditId=a.id;state.expandedAads.clear();state.workspaceView='checklist';}
     Object.assign(a,{organizationName:els.organizationName.value.trim(),auditNo:els.auditNo.value.trim(),status:els.auditStatus.value,startDate:els.auditStartDate.value,endDate:els.auditEndDate.value,leadAuditor:els.leadAuditor.value.trim(),auditors:els.auditors.value.trim(),generalNote:els.auditGeneralNote.value.trim()});
     await persistAudit(a); els.auditDialog.close(); renderAll(); toast('Denetim kaydedildi.');
   }
@@ -694,7 +751,7 @@
       state.audits=state.audits.filter(x=>x.id!==id);
       clearPendingSync(id);
       state.activeAuditId=state.audits[0]?.id||null;
-      state.expanded.clear(); state.expandedAads.clear();
+      state.expanded.clear(); state.expandedAads.clear(); state.workspaceView='checklist'; if(state.lastAadByAudit) delete state.lastAadByAudit[id]; saveUiState();
       saveLocal();
       els.auditDialog.close();
       setSaveStatus(state.offlineMode?'local':'saved');
@@ -931,10 +988,16 @@
   els.auditSearch.addEventListener('input',renderAuditList);
   [els.criterionSearch,els.typeFilter,els.resultFilter,els.followUpFilter].forEach(x=>x.addEventListener('input',renderQuestions));
   els.expandAllBtn.onclick=()=>{const codes=[...new Set(criteria.map(x=>x.questionCode))]; const allOpen=codes.every(c=>state.expanded.has(c)); state.expanded=new Set(allOpen?[]:codes); renderQuestions();};
-  if(els.showNoncompliantBtn) els.showNoncompliantBtn.onclick=()=>{els.criterionSearch.value='';els.typeFilter.value='all';els.resultFilter.value='Uygun Değil';els.followUpFilter.value='all';renderQuestions();els.questions.scrollIntoView({behavior:'smooth',block:'start'});};
-  els.showAllPendingBtn.onclick=()=>{els.criterionSearch.value='';els.typeFilter.value='all';els.resultFilter.value='all';els.followUpFilter.value='pending';renderQuestions();els.questions.scrollIntoView({behavior:'smooth',block:'start'});};
+  if(els.showNoncompliantBtn) els.showNoncompliantBtn.onclick=()=>{els.criterionSearch.value='';els.typeFilter.value='all';els.resultFilter.value='Uygun Değil';els.followUpFilter.value='all';setWorkspaceView('checklist',{restore:false});renderQuestions();els.questions.scrollIntoView({behavior:'smooth',block:'start'});};
+  els.showAllPendingBtn.onclick=()=>{els.criterionSearch.value='';els.typeFilter.value='all';els.resultFilter.value='all';els.followUpFilter.value='pending';setWorkspaceView('checklist',{restore:false});renderQuestions();els.questions.scrollIntoView({behavior:'smooth',block:'start'});};
   els.nextUnassessedBtn.onclick=goToNextUnassessed;
-  if(els.excelExportBtn) els.excelExportBtn.onclick=exportExcel; if(els.pdfExportBtn) els.pdfExportBtn.onclick=exportPDF; els.exportBtn.onclick=exportAudit; els.printBtn.onclick=()=>window.print();
+  document.querySelectorAll('.workspace-tab').forEach(btn=>btn.addEventListener('click',()=>setWorkspaceView(btn.dataset.workspaceView)));
+  function closeExportMenu(){ if(!els.exportMenu)return; els.exportMenu.classList.add('hidden'); els.exportMenuBtn?.setAttribute('aria-expanded','false'); }
+  if(els.exportMenuBtn) els.exportMenuBtn.onclick=(e)=>{ e.stopPropagation(); const opening=els.exportMenu.classList.contains('hidden'); els.exportMenu.classList.toggle('hidden',!opening); els.exportMenuBtn.setAttribute('aria-expanded',opening?'true':'false'); };
+  document.addEventListener('click',e=>{ if(els.exportMenu && !e.target.closest('.export-menu-wrap')) closeExportMenu(); });
+  if(els.excelExportBtn) els.excelExportBtn.onclick=()=>{closeExportMenu();exportExcel();}; if(els.pdfExportBtn) els.pdfExportBtn.onclick=()=>{closeExportMenu();exportPDF();}; els.exportBtn.onclick=()=>{closeExportMenu();exportAudit();};
+  els.printBtn.onclick=()=>{ closeExportMenu(); document.body.classList.add('print-all-views'); window.print(); };
+  window.addEventListener('afterprint',()=>document.body.classList.remove('print-all-views'));
   els.loginBtn.onclick=loginWithEmailPassword;
   els.loginPass.addEventListener('keydown',e=>{if(e.key==='Enter') loginWithEmailPassword();});
   els.offlineBtn.onclick=enterOfflineMode;
@@ -942,6 +1005,7 @@
     if(state.offlineMode){ state.offlineMode=false; state.audits=[]; state.activeAuditId=null; showLogin(); return; }
     if(state.firebase) await state.firebase.auth.signOut();
   };
+  loadUiState();
   initFirebase();
 
   // Tarayıcı/sekmeyi kapatma anında son bellek durumunu senkron olarak yerel yedeğe yaz.

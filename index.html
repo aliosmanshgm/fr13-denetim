@@ -72,82 +72,42 @@
             </div>
             <div class="summary-actions">
               <button id="editAuditBtn" class="btn secondary">Denetim bilgileri</button>
-              <button id="excelExportBtn" class="btn export-excel" title="Denetimi çok sayfalı Excel çalışma kitabı olarak dışa aktar">📊 Excel</button>
-              <button id="pdfExportBtn" class="btn export-pdf" title="Denetimin tamamını PDF raporu olarak dışa aktar">📄 PDF</button>
-              <button id="exportBtn" class="btn secondary" title="Ham denetim verisini JSON olarak dışa aktar">JSON</button>
-              <button id="printBtn" class="btn secondary">Yazdır</button>
+              <div class="export-menu-wrap">
+                <button id="exportMenuBtn" type="button" class="btn secondary export-menu-trigger" aria-expanded="false" aria-controls="exportMenu">Dışa Aktar <span aria-hidden="true">▾</span></button>
+                <div id="exportMenu" class="export-menu-panel hidden" role="menu">
+                  <button id="excelExportBtn" type="button" class="export-menu-item" role="menuitem">📊 Excel</button>
+                  <button id="pdfExportBtn" type="button" class="export-menu-item" role="menuitem">📄 PDF</button>
+                  <button id="exportBtn" type="button" class="export-menu-item" role="menuitem">{ } JSON</button>
+                  <button id="printBtn" type="button" class="export-menu-item" role="menuitem">🖨️ Yazdır</button>
+                </div>
+              </div>
             </div>
-          </div>
-          <div class="human-dashboard">
-            <section class="overview-card progress-overview">
-              <div class="overview-label">DENETİM İLERLEMESİ</div>
-              <div class="progress-value-row"><strong id="kpiProgress">0/58</strong><span id="auditProgressPercent">%0</span></div>
-              <div class="audit-progress-track" aria-hidden="true"><span id="auditProgressBar" style="width:0%"></span></div>
-              <div class="overview-mini-grid">
-                <div><span>Uzaktan</span><strong id="kpiRemote">0/23</strong></div>
-                <div><span>Yerinde</span><strong id="kpiOnsite">0/35</strong></div>
-              </div>
-            </section>
-            <section class="overview-card assessment-overview">
-              <div class="overview-label">DEĞERLENDİRME SONUÇLARI</div>
-              <div class="overview-metric-grid four">
-                <div class="overview-metric compliant"><strong id="kpiCompliant">0</strong><span>Uygun</span></div>
-                <div class="overview-metric noncompliant"><strong id="kpiNoncompliant">0</strong><span>Uygun Değil</span></div>
-                <div class="overview-metric na"><strong id="kpiNA">0</strong><span>N/A</span></div>
-                <div class="overview-metric notasked"><strong id="kpiNotAsked">0</strong><span>Sorulmadı</span></div>
-              </div>
-              <p class="overview-help">Uygun Değil seçildiğinde bulgu seviyesi ve iki bulgu metni zorunludur.</p>
-            </section>
-            <section class="overview-card followup-overview">
-              <div class="overview-label">TAKİP / BEKLENEN HUSUS</div>
-              <div class="overview-metric-grid three">
-                <div class="overview-metric pending"><strong id="kpiPending">0</strong><span>Bekleyen</span></div>
-                <div class="overview-metric overdue"><strong id="kpiOverdue">0</strong><span>Gecikmiş</span></div>
-                <div class="overview-metric undated"><strong id="kpiUndated">0</strong><span>Tarihsiz</span></div>
-              </div>
-              <p class="overview-help">Gecikmiş ve tarihsiz işler daha yüksek görsel öncelik alır.</p>
-            </section>
           </div>
         </section>
 
-        <section id="findingSummaryPanel" class="panel finding-summary-panel hidden">
-          <div class="panel-title-row finding-summary-title-row">
-            <div>
-              <h2>Uygun Değil / Tespit Özeti</h2>
-              <p>AAD değerlendirmelerinden oluşan Seviye 1, Seviye 2 ve Gözlem tespitleri <span id="findingSummaryAttention" class="finding-summary-attention"></span></p>
-            </div>
-            <button id="showNoncompliantBtn" class="btn secondary small">Uygun Değil kayıtlarını göster</button>
+                <nav id="workspaceNav" class="workspace-nav" aria-label="Denetim çalışma alanı">
+          <div class="workspace-tabs" role="tablist" aria-label="Denetim bölümleri">
+            <button type="button" class="workspace-tab active" data-workspace-view="checklist" role="tab" aria-selected="true">
+              <span class="workspace-tab-label">Kontrol Listesi</span><span id="navChecklistCount" class="workspace-tab-count">0/58</span>
+            </button>
+            <button type="button" class="workspace-tab" data-workspace-view="findings" role="tab" aria-selected="false">
+              <span class="workspace-tab-label">Tespitler</span><span id="navFindingCount" class="workspace-tab-count">0</span>
+            </button>
+            <button type="button" class="workspace-tab" data-workspace-view="pending" role="tab" aria-selected="false">
+              <span class="workspace-tab-label">Bekleyen İşler</span><span id="navPendingCount" class="workspace-tab-count">0</span>
+            </button>
+            <button type="button" class="workspace-tab" data-workspace-view="summary" role="tab" aria-selected="false">
+              <span class="workspace-tab-label">Denetim Özeti</span>
+            </button>
           </div>
-          <div class="finding-summary-kpis">
-            <div class="finding-summary-kpi level1"><strong id="findingLevel1Count">0</strong><span>Seviye 1</span></div>
-            <div class="finding-summary-kpi level2"><strong id="findingLevel2Count">0</strong><span>Seviye 2</span></div>
-            <div class="finding-summary-kpi observation"><strong id="findingObservationCount">0</strong><span>Gözlem</span></div>
+          <div class="workspace-nav-status" aria-live="polite">
+            <strong id="workspaceQuickProgress">0/58 değerlendirildi</strong>
+            <span id="workspaceQuickAlert" class="workspace-quick-alert">Kritik uyarı yok</span>
           </div>
-          <div class="finding-summary-table-wrap">
-            <table class="finding-summary-table">
-              <thead><tr><th>AAD</th><th>Seviye</th><th>Ön Tanımlı Bulgu</th><th>Bulgu Açıklaması</th></tr></thead>
-              <tbody id="findingSummaryList"></tbody>
-            </table>
-          </div>
-        </section>
+        </nav>
 
-        <section id="followUpPanel" class="panel followup-panel hidden">
-          <div class="panel-title-row followup-title-row">
-            <div>
-              <h2>Bekleyen İşler</h2>
-              <p>AAD'lerde talep edilip henüz tamamlanmamış hususlar <span id="followUpAttention" class="followup-attention"></span></p>
-            </div>
-            <button id="showAllPendingBtn" class="btn secondary small">Takip bekleyenleri göster</button>
-          </div>
-          <div class="followup-table-wrap">
-            <table class="followup-table">
-              <thead><tr><th>AAD</th><th>Beklenen Husus</th><th>Hatırlatma</th><th>Durum</th><th>Hızlı İşlem</th></tr></thead>
-              <tbody id="followUpList"></tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="panel toolbar human-toolbar">
+        <section id="workspaceViewChecklist" class="workspace-view" data-workspace-panel="checklist">
+<section class="panel toolbar human-toolbar">
           <div class="toolbar-search-group">
             <label for="criterionSearch">Kontrol formunda ara</label>
             <input id="criterionSearch" class="input grow" placeholder="Soru, AAD, kriter, mevzuat, not veya takip hususu ara" />
@@ -184,8 +144,90 @@
             <button id="expandAllBtn" class="btn secondary">Soruları aç / kapat</button>
           </div>
         </section>
+          <div id="questions"></div>
+        </section>
 
-        <div id="questions"></div>
+        <section id="workspaceViewFindings" class="workspace-view hidden" data-workspace-panel="findings">
+<section id="findingSummaryPanel" class="panel finding-summary-panel">
+          <div class="panel-title-row finding-summary-title-row">
+            <div>
+              <h2>Uygun Değil / Tespit Özeti</h2>
+              <p>AAD değerlendirmelerinden oluşan Seviye 1, Seviye 2 ve Gözlem tespitleri <span id="findingSummaryAttention" class="finding-summary-attention"></span></p>
+            </div>
+            <button id="showNoncompliantBtn" class="btn secondary small">Uygun Değil kayıtlarını göster</button>
+          </div>
+          <div class="finding-summary-kpis">
+            <div class="finding-summary-kpi level1"><strong id="findingLevel1Count">0</strong><span>Seviye 1</span></div>
+            <div class="finding-summary-kpi level2"><strong id="findingLevel2Count">0</strong><span>Seviye 2</span></div>
+            <div class="finding-summary-kpi observation"><strong id="findingObservationCount">0</strong><span>Gözlem</span></div>
+          </div>
+          <div class="finding-summary-table-wrap">
+            <table class="finding-summary-table">
+              <thead><tr><th>AAD</th><th>Seviye</th><th>Ön Tanımlı Bulgu</th><th>Bulgu Açıklaması</th></tr></thead>
+              <tbody id="findingSummaryList"></tbody>
+            </table>
+          </div>
+        </section>
+        </section>
+
+        <section id="workspaceViewPending" class="workspace-view hidden" data-workspace-panel="pending">
+<section id="followUpPanel" class="panel followup-panel">
+          <div class="panel-title-row followup-title-row">
+            <div>
+              <h2>Bekleyen İşler</h2>
+              <p>AAD'lerde talep edilip henüz tamamlanmamış hususlar <span id="followUpAttention" class="followup-attention"></span></p>
+            </div>
+            <button id="showAllPendingBtn" class="btn secondary small">Takip bekleyenleri göster</button>
+          </div>
+          <div class="followup-table-wrap">
+            <table class="followup-table">
+              <thead><tr><th>AAD</th><th>Beklenen Husus</th><th>Hatırlatma</th><th>Durum</th><th>Hızlı İşlem</th></tr></thead>
+              <tbody id="followUpList"></tbody>
+            </table>
+          </div>
+        </section>
+        </section>
+
+        <section id="workspaceViewSummary" class="workspace-view hidden" data-workspace-panel="summary">
+          <section class="panel workspace-summary-panel">
+          <div class="human-dashboard">
+            <section class="overview-card progress-overview">
+              <div class="overview-label">DENETİM İLERLEMESİ</div>
+              <div class="progress-value-row"><strong id="kpiProgress">0/58</strong><span id="auditProgressPercent">%0</span></div>
+              <div class="audit-progress-track" aria-hidden="true"><span id="auditProgressBar" style="width:0%"></span></div>
+              <div class="overview-mini-grid">
+                <div><span>Uzaktan</span><strong id="kpiRemote">0/23</strong></div>
+                <div><span>Yerinde</span><strong id="kpiOnsite">0/35</strong></div>
+              </div>
+            </section>
+            <section class="overview-card assessment-overview">
+              <div class="overview-label">DEĞERLENDİRME SONUÇLARI</div>
+              <div class="overview-metric-grid four">
+                <div class="overview-metric compliant"><strong id="kpiCompliant">0</strong><span>Uygun</span></div>
+                <div class="overview-metric noncompliant"><strong id="kpiNoncompliant">0</strong><span>Uygun Değil</span></div>
+                <div class="overview-metric na"><strong id="kpiNA">0</strong><span>N/A</span></div>
+                <div class="overview-metric notasked"><strong id="kpiNotAsked">0</strong><span>Sorulmadı</span></div>
+              </div>
+              <p class="overview-help">Uygun Değil seçildiğinde bulgu seviyesi ve iki bulgu metni zorunludur.</p>
+            </section>
+            <section class="overview-card followup-overview">
+              <div class="overview-label">TAKİP / BEKLENEN HUSUS</div>
+              <div class="overview-metric-grid three">
+                <div class="overview-metric pending"><strong id="kpiPending">0</strong><span>Bekleyen</span></div>
+                <div class="overview-metric overdue"><strong id="kpiOverdue">0</strong><span>Gecikmiş</span></div>
+                <div class="overview-metric undated"><strong id="kpiUndated">0</strong><span>Tarihsiz</span></div>
+              </div>
+              <p class="overview-help">Gecikmiş ve tarihsiz işler daha yüksek görsel öncelik alır.</p>
+            </section>
+          </div>
+            <div class="summary-context-grid">
+              <article class="summary-context-card"><span>Denetim Durumu</span><strong id="summaryAuditStatus">—</strong></article>
+              <article class="summary-context-card"><span>Kontrol Formu</span><strong id="summaryFormVersion">—</strong></article>
+              <article class="summary-context-card wide"><span>Denetim Ekibi</span><strong id="summaryAuditors">—</strong></article>
+              <article class="summary-context-card full"><span>Genel Denetim Notu</span><p id="summaryGeneralNote">Genel denetim notu girilmedi.</p></article>
+            </div>
+          </section>
+        </section>
       </div>
     </section>
   </main>

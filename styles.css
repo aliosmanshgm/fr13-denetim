@@ -175,3 +175,38 @@ details{margin-top:3px}details summary{font-size:11px;color:#536b80;cursor:point
 .btn.export-excel{background:#f1faf4;color:#176b3a;border-color:#a9cfb7}.btn.export-excel:hover{background:#e7f6ec;border-color:#7bb18f;filter:none}
 .btn.export-pdf{background:#fff5f4;color:#9f241b;border-color:#e4b5b0}.btn.export-pdf:hover{background:#ffebe9;border-color:#d78c85;filter:none}
 @media(max-width:760px){.summary-actions{width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.summary-actions .btn{justify-content:center;text-align:center}}
+
+
+/* =====================================================================
+   UX v14 - DENETIM CALISMA ALANI / BILGI MIMARISI
+   Kontrol Listesi, Tespitler, Bekleyen Isler ve Ozet birbirinden ayrilir.
+   ===================================================================== */
+.audit-summary{margin-bottom:10px}
+.summary-actions{align-items:center}
+.export-menu-wrap{position:relative}
+.export-menu-trigger{min-width:112px;justify-content:space-between;gap:9px}
+.export-menu-panel{position:absolute;right:0;top:calc(100% + 7px);z-index:70;min-width:190px;padding:6px;background:#fff;border:1px solid #cfd9e2;border-radius:10px;box-shadow:0 14px 34px rgba(15,23,42,.18)}
+.export-menu-item{display:flex;width:100%;align-items:center;gap:9px;border:0;background:transparent;color:#263d52;padding:9px 10px;border-radius:7px;font:inherit;font-size:12px;font-weight:750;text-align:left;cursor:pointer}
+.export-menu-item:hover{background:#eef5fb;color:#123b61}
+.workspace-nav{position:sticky;top:74px;z-index:24;display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 14px;padding:8px 10px;background:rgba(247,250,252,.96);backdrop-filter:blur(10px);border:1px solid #cfd9e2;border-radius:11px;box-shadow:0 6px 18px rgba(15,23,42,.07)}
+.workspace-tabs{display:flex;gap:5px;min-width:0;overflow-x:auto;scrollbar-width:thin}
+.workspace-tab{display:flex;align-items:center;gap:7px;flex:0 0 auto;min-height:39px;padding:7px 10px;border:1px solid transparent;border-radius:8px;background:transparent;color:#536577;font:inherit;font-size:11.5px;font-weight:850;cursor:pointer;transition:.15s}
+.workspace-tab:hover{background:#eef3f7;color:#123b61}.workspace-tab.active{background:#eaf2f8;border-color:#a9c1d5;color:#123b61;box-shadow:inset 0 -2px 0 #2d6fa8}
+.workspace-tab-count{display:inline-flex;align-items:center;justify-content:center;min-width:25px;height:21px;padding:0 6px;border-radius:999px;background:#fff;border:1px solid #d8e1e8;color:#526272;font-size:9.5px;font-weight:900}
+.workspace-tab-count.danger{background:#fff0ef;border-color:#e5aaa5;color:#9f241b}.workspace-tab-count.warn{background:#fff7e8;border-color:#e3c487;color:#82550a}
+.workspace-nav-status{display:flex;align-items:center;gap:8px;flex:0 0 auto;padding-left:10px;border-left:1px solid #dbe3e9;font-size:10px;white-space:nowrap}.workspace-nav-status strong{color:#365d7c}.workspace-quick-alert{padding:4px 7px;border-radius:999px;background:#edf5ef;color:#176b3a;font-weight:850}.workspace-quick-alert.warn{background:#fff7e8;color:#82550a}.workspace-quick-alert.danger{background:#fff0ef;color:#9f241b}
+.workspace-view{min-width:0}.workspace-view>.panel{margin-bottom:14px}.workspace-view .finding-summary-panel,.workspace-view .followup-panel{margin-top:0}
+.workspace-empty-row{text-align:center!important;color:#718293!important;padding:28px 12px!important;font-style:italic;background:#fafbfd}
+.workspace-summary-panel{overflow:hidden;padding:0}.workspace-summary-panel .human-dashboard{border-bottom:1px solid #e5ebf0}
+.summary-context-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:14px 16px 16px;background:#fbfcfd}.summary-context-card{padding:11px 12px;background:#fff;border:1px solid #e1e8ee;border-radius:9px;min-width:0}.summary-context-card span{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.05em;font-weight:900;color:#718293;margin-bottom:5px}.summary-context-card strong{display:block;color:#263d52;font-size:12px;overflow-wrap:anywhere}.summary-context-card p{margin:0;color:#405163;font-size:12px;line-height:1.55;white-space:pre-wrap}.summary-context-card.wide{grid-column:span 2}.summary-context-card.full{grid-column:1/-1}
+/* Sticky alt menu nedeniyle kontrol listesi araci onun hemen altinda kalir. */
+.human-toolbar{top:132px;z-index:18}
+@media(max-width:1200px){.workspace-nav{align-items:stretch;flex-direction:column;gap:6px}.workspace-nav-status{border-left:0;border-top:1px solid #dbe3e9;padding:6px 2px 0;justify-content:space-between}.human-toolbar{top:162px}.summary-context-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.workspace-nav{top:0;position:sticky;border-radius:9px;padding:7px}.workspace-tabs{width:100%}.workspace-tab{min-height:38px}.workspace-nav-status{width:100%}.summary-context-grid{grid-template-columns:1fr 1fr}.summary-context-card.wide{grid-column:1/-1}.human-toolbar{top:108px}.export-menu-panel{position:fixed;right:12px;left:12px;top:126px;min-width:0}.summary-actions{width:auto;display:flex}.summary-actions .btn{width:auto}}
+@media(max-width:520px){.workspace-nav-status{align-items:flex-start;flex-direction:column;gap:4px}.summary-context-grid{grid-template-columns:1fr}.summary-context-card.wide,.summary-context-card.full{grid-column:auto}.human-toolbar{top:130px}.workspace-tab-label{font-size:10.5px}}
+@media print{
+  .workspace-nav,.export-menu-wrap,.human-toolbar{display:none!important}
+  body.print-all-views .workspace-view.hidden{display:block!important}
+  body.print-all-views .workspace-view{break-before:auto}
+  body.print-all-views #workspaceViewFindings,body.print-all-views #workspaceViewPending,body.print-all-views #workspaceViewSummary{margin-top:14px}
+}
