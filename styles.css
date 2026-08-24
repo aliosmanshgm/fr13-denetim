@@ -210,3 +210,40 @@ details{margin-top:3px}details summary{font-size:11px;color:#536b80;cursor:point
   body.print-all-views .workspace-view{break-before:auto}
   body.print-all-views #workspaceViewFindings,body.print-all-views #workspaceViewPending,body.print-all-views #workspaceViewSummary{margin-top:14px}
 }
+
+/* =====================================================================
+   UX v14.1 - DISA AKTAR MENU KATMAN / CLIPPING DUZELTMESI
+   audit-summary'nin eski overflow:hidden kurali dropdown'u kesiyordu.
+   ===================================================================== */
+.audit-summary{
+  overflow:visible;
+  position:relative;
+  z-index:30;
+}
+.audit-summary .summary-head{
+  position:relative;
+  z-index:31;
+  overflow:visible;
+  border-radius:var(--radius);
+}
+.summary-actions{
+  position:relative;
+  z-index:40;
+  overflow:visible;
+}
+.export-menu-wrap{
+  position:relative;
+  z-index:50;
+  overflow:visible;
+}
+.export-menu-panel{
+  z-index:1000;
+}
+.workspace-nav{
+  z-index:24;
+}
+@media(max-width:760px){
+  .export-menu-panel{
+    z-index:2000;
+  }
+}
