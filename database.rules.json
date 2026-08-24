@@ -3,6 +3,10 @@
     "fr13_audits": {
       ".read": "auth != null && auth.uid === '1PufZpJF1SSp12TiYqMw3hJeYgm2'",
       ".write": "auth != null && auth.uid === '1PufZpJF1SSp12TiYqMw3hJeYgm2'"
+    },
+    "fr13_checklists": {
+      ".read": "auth != null && auth.uid === '1PufZpJF1SSp12TiYqMw3hJeYgm2'",
+      ".write": "auth != null && auth.uid === '1PufZpJF1SSp12TiYqMw3hJeYgm2'"
     }
   }
 }
