@@ -53,13 +53,17 @@
         </div>
         <input id="auditSearch" class="input" placeholder="Denetim / işletme ara" />
         <div id="auditList" class="audit-list"></div>
+        <div class="sidebar-admin-zone">
+          <button type="button" id="checklistManagerBtn" class="btn secondary checklist-admin-btn">⚙ Kontrol Listesi Yönetimi</button>
+          <small>Yeni sürüm, Excel güncelleme ve sürüm geçmişi</small>
+        </div>
       </section>
     </aside>
 
     <section class="content">
       <div id="emptyState" class="panel empty-state">
         <h2>Bir denetim seçin veya yeni denetim oluşturun</h2>
-        <p>FR.13 kontrol formundaki 58 AAD denetim özelinde ayrı ayrı değerlendirilir ve kaydedilir.</p>
+        <p>Aktif FR.13 kontrol listesindeki AAD’ler denetim özelinde ayrı ayrı değerlendirilir ve kaydedilir.</p>
       </div>
 
       <div id="auditWorkspace" class="hidden">
@@ -238,6 +242,7 @@
         <h2 id="auditDialogTitle">Yeni denetim</h2>
         <button type="button" class="icon-btn cancel-dialog" aria-label="Kapat">×</button>
       </div>
+      <div id="auditChecklistVersionHint" class="audit-checklist-version-hint"></div>
       <input type="hidden" id="auditId" />
       <label>İşletme / Kuruluş adı<input id="organizationName" class="input" required /></label>
       <div class="two-col">
@@ -259,6 +264,34 @@
         </div>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="checklistDialog" class="checklist-dialog">
+    <div class="checklist-dialog-shell">
+      <div class="dialog-head checklist-dialog-head">
+        <div><div class="eyebrow">YÖNETİM</div><h2>Kontrol Listesi Yönetimi</h2><p>FR.13 master listesini sürümleyerek yönetin. Mevcut denetimler kendi snapshot'larında korunur.</p></div>
+        <button type="button" id="checklistCloseBtn" class="icon-btn" aria-label="Kapat">×</button>
+      </div>
+      <div id="checklistCloudStatus" class="checklist-cloud-status"></div>
+      <section class="checklist-active-card">
+        <div><span>AKTİF SÜRÜM</span><h3 id="checklistActiveName">—</h3><p id="checklistActiveMeta">—</p><small id="checklistActiveNote">—</small></div>
+        <button type="button" id="checklistExportBtn" class="btn secondary">📊 Mevcut Listeyi Excel'e Aktar</button>
+      </section>
+      <section class="checklist-import-card">
+        <div class="checklist-section-head"><div><h3>Yeni Sürüm Hazırla</h3><p>Önce aktif listeyi Excel'e aktarın, FR13_DATA sayfasını düzenleyin ve güncellenmiş dosyayı geri yükleyin.</p></div></div>
+        <div class="checklist-import-grid">
+          <label>Güncellenmiş Excel<input type="file" id="checklistExcelInput" class="input" accept=".xlsx,.xls" /></label>
+          <label>Sürüm adı *<input id="checklistVersionName" class="input" placeholder="Örn. FR.13 Rev.02 / 24.08.2026" /></label>
+          <label class="full">Sürüm notu<textarea id="checklistVersionNotes" class="input" rows="2" placeholder="Değişikliğin kısa gerekçesi / kapsamı"></textarea></label>
+        </div>
+        <div id="checklistImportStatus" class="checklist-import-status"></div>
+        <div id="checklistDiffSummary"></div>
+        <div class="checklist-diff-wrap"><table class="checklist-diff-table"><thead><tr><th>Durum</th><th>AAD</th><th>Değişen Alan</th><th>Kriter Özeti</th></tr></thead><tbody id="checklistDiffTable"></tbody></table></div>
+        <div class="checklist-import-actions"><button type="button" id="checklistClearDraftBtn" class="btn secondary" disabled>Önizlemeyi Temizle</button><button type="button" id="checklistPublishBtn" class="btn" disabled>Yeni Sürümü Yayımla</button></div>
+      </section>
+      <section class="checklist-history-card"><div class="checklist-section-head"><div><h3>Sürüm Geçmişi</h3><p>Eski sürümler silinmez. Gerekirse yeni denetimler için yeniden aktif hale getirilebilir.</p></div></div><div id="checklistVersionList" class="checklist-version-list"></div></section>
+      <div class="checklist-safety-note"><b>Veri bütünlüğü:</b> Yeni bir kontrol listesi sürümü yayımlandığında mevcut denetimlerin AAD yapısı değiştirilmez. Her denetim, oluşturulduğu anda aktif olan listenin snapshot'ını kendi kaydında saklar.</div>
+    </div>
   </dialog>
 
   <div id="toast" class="toast hidden"></div>

@@ -1,24 +1,31 @@
 (() => {
   const T = window.FR13_TEMPLATE;
-  const criteria = T.data;
+  const BUNDLED_CRITERIA = JSON.parse(JSON.stringify(T.data || []));
+  const BUNDLED_VERSION_ID = `bundled_${String(T.formatVersion||'1_1').replace(/[^a-zA-Z0-9_-]/g,'_')}`;
+  const BUNDLED_VERSION_NAME = `FR.13 ${T.formatVersion || 'Başlangıç'} (Başlangıç)`;
+  let masterChecklist = {versionId:BUNDLED_VERSION_ID,versionName:BUNDLED_VERSION_NAME,formatVersion:T.formatVersion||'',createdAt:null,createdBy:'Uygulama paketi',notes:'Uygulama ile gelen başlangıç kontrol listesi',itemCount:BUNDLED_CRITERIA.length,data:JSON.parse(JSON.stringify(BUNDLED_CRITERIA))};
+  let checklistVersions = [masterChecklist];
+  let criteria = masterChecklist.data;
   const STORAGE_KEY = 'fr13_audit_app_v1';
   const PENDING_SYNC_KEY = 'fr13_audit_pending_sync_v1';
   const UI_STATE_KEY = 'fr13_audit_ui_v14';
-  const state = { audits: [], activeAuditId: null, firebase: null, firebaseConnected: false, user: null, offlineMode: false, expanded: new Set(), expandedAads: new Set(), workspaceView:'checklist', lastAadByAudit:{} };
+  const CHECKLIST_STORAGE_KEY = 'fr13_checklist_registry_v15';
+  const state = { audits: [], activeAuditId: null, firebase: null, firebaseConnected: false, user: null, offlineMode: false, expanded: new Set(), expandedAads: new Set(), workspaceView:'checklist', lastAadByAudit:{}, checklistDraft:null, checklistPermissionError:false };
 
   const $ = (id) => document.getElementById(id);
   const els = {
     loginOverlay:$('loginOverlay'), loginEmail:$('loginEmail'), loginPass:$('loginPass'), loginBtn:$('loginBtn'), offlineBtn:$('offlineBtn'), loginError:$('loginError'), firebaseConfigHint:$('firebaseConfigHint'),
     appHeader:$('appHeader'), appShell:$('appShell'), storageBadge:$('storageBadge'), saveStatusBadge:$('saveStatusBadge'), saveStatusDetail:$('saveStatusDetail'), currentUserLabel:$('currentUserLabel'), signOutBtn:$('signOutBtn'),
-    auditList:$('auditList'), auditSearch:$('auditSearch'), newAuditBtn:$('newAuditBtn'),
+    auditList:$('auditList'), auditSearch:$('auditSearch'), newAuditBtn:$('newAuditBtn'), checklistManagerBtn:$('checklistManagerBtn'),
     emptyState:$('emptyState'), workspace:$('auditWorkspace'), auditNoLabel:$('auditNoLabel'), auditTitle:$('auditTitle'), auditMeta:$('auditMeta'),
     editAuditBtn:$('editAuditBtn'), exportMenuBtn:$('exportMenuBtn'), exportMenu:$('exportMenu'), excelExportBtn:$('excelExportBtn'), pdfExportBtn:$('pdfExportBtn'), exportBtn:$('exportBtn'), printBtn:$('printBtn'),
     workspaceNav:$('workspaceNav'), workspaceViewChecklist:$('workspaceViewChecklist'), workspaceViewFindings:$('workspaceViewFindings'), workspaceViewPending:$('workspaceViewPending'), workspaceViewSummary:$('workspaceViewSummary'), navChecklistCount:$('navChecklistCount'), navFindingCount:$('navFindingCount'), navPendingCount:$('navPendingCount'), workspaceQuickProgress:$('workspaceQuickProgress'), workspaceQuickAlert:$('workspaceQuickAlert'), summaryAuditStatus:$('summaryAuditStatus'), summaryFormVersion:$('summaryFormVersion'), summaryAuditors:$('summaryAuditors'), summaryGeneralNote:$('summaryGeneralNote'),
     kpiProgress:$('kpiProgress'), kpiCompliant:$('kpiCompliant'), kpiNoncompliant:$('kpiNoncompliant'), kpiNA:$('kpiNA'), kpiNotAsked:$('kpiNotAsked'), kpiRemote:$('kpiRemote'), kpiOnsite:$('kpiOnsite'),
     kpiPending:$('kpiPending'), kpiOverdue:$('kpiOverdue'), kpiUndated:$('kpiUndated'), auditProgressBar:$('auditProgressBar'), auditProgressPercent:$('auditProgressPercent'), findingSummaryPanel:$('findingSummaryPanel'), findingSummaryList:$('findingSummaryList'), findingSummaryAttention:$('findingSummaryAttention'), findingLevel1Count:$('findingLevel1Count'), findingLevel2Count:$('findingLevel2Count'), findingObservationCount:$('findingObservationCount'), showNoncompliantBtn:$('showNoncompliantBtn'), followUpPanel:$('followUpPanel'), followUpList:$('followUpList'), followUpAttention:$('followUpAttention'), showAllPendingBtn:$('showAllPendingBtn'),
     criterionSearch:$('criterionSearch'), typeFilter:$('typeFilter'), resultFilter:$('resultFilter'), followUpFilter:$('followUpFilter'), nextUnassessedBtn:$('nextUnassessedBtn'), expandAllBtn:$('expandAllBtn'), questions:$('questions'),
-    auditDialog:$('auditDialog'), auditForm:$('auditForm'), auditDialogTitle:$('auditDialogTitle'), auditId:$('auditId'), organizationName:$('organizationName'), auditNo:$('auditNo'),
+    auditDialog:$('auditDialog'), auditForm:$('auditForm'), auditDialogTitle:$('auditDialogTitle'), auditChecklistVersionHint:$('auditChecklistVersionHint'), auditId:$('auditId'), organizationName:$('organizationName'), auditNo:$('auditNo'),
     auditStatus:$('auditStatus'), auditStartDate:$('auditStartDate'), auditEndDate:$('auditEndDate'), leadAuditor:$('leadAuditor'), auditors:$('auditors'), auditGeneralNote:$('auditGeneralNote'), deleteAuditBtn:$('deleteAuditBtn'),
+    checklistDialog:$('checklistDialog'), checklistCloseBtn:$('checklistCloseBtn'), checklistActiveName:$('checklistActiveName'), checklistActiveMeta:$('checklistActiveMeta'), checklistActiveNote:$('checklistActiveNote'), checklistExportBtn:$('checklistExportBtn'), checklistExcelInput:$('checklistExcelInput'), checklistVersionName:$('checklistVersionName'), checklistVersionNotes:$('checklistVersionNotes'), checklistImportStatus:$('checklistImportStatus'), checklistDiffSummary:$('checklistDiffSummary'), checklistDiffTable:$('checklistDiffTable'), checklistPublishBtn:$('checklistPublishBtn'), checklistClearDraftBtn:$('checklistClearDraftBtn'), checklistVersionList:$('checklistVersionList'), checklistCloudStatus:$('checklistCloudStatus'),
     toast:$('toast')
   };
 
@@ -48,6 +55,11 @@
     }
   }
   function currentAudit(){ return state.audits.find(a=>a.id===state.activeAuditId); }
+  function deepClone(v){ return JSON.parse(JSON.stringify(v)); }
+  function auditCriteria(a){ return (a && Array.isArray(a.checklistSnapshot) && a.checklistSnapshot.length) ? a.checklistSnapshot : BUNDLED_CRITERIA; }
+  function activateAuditCriteria(a){ criteria = a ? auditCriteria(a) : (masterChecklist?.data || BUNDLED_CRITERIA); }
+  function auditPayload(a){ const payload={}; Object.entries(a||{}).forEach(([k,v])=>{ if(k!=='id' && !k.startsWith('__')) payload[k]=v; }); return payload; }
+  function masterRemoteOnsiteCounts(data=masterChecklist?.data||[]){ return {remote:data.filter(x=>x.auditType==='Uzaktan').length, onsite:data.filter(x=>x.auditType==='Yerinde').length}; }
   function blankResponse(){
     return {result:'', evidenceRefs:'', auditorNote:'', findingLevel:'', predefinedFinding:'', findingDescription:'', followUpText:'', followUpStatus:'', reminderDate:'', followUpCreatedAt:null, completedAt:null, updatedAt:null};
   }
@@ -69,10 +81,27 @@
   function normalizeAudit(a){
     a.responses ||= {};
     Object.keys(a.responses).forEach(k => { a.responses[k] = normalizeResponse(a.responses[k]); });
+    if(!Array.isArray(a.checklistSnapshot) || !a.checklistSnapshot.length){
+      a.checklistSnapshot=deepClone(BUNDLED_CRITERIA);
+      a.checklistVersionId=a.checklistVersionId||BUNDLED_VERSION_ID;
+      a.checklistVersionName=a.checklistVersionName||BUNDLED_VERSION_NAME;
+      a.formVersion=a.formVersion||T.formatVersion||'';
+      try{ Object.defineProperty(a,'__needsSnapshotPersist',{value:true,writable:true,enumerable:false,configurable:true}); }catch{}
+    }
     return a;
   }
 
   function saveLocal(){ localStorage.setItem(STORAGE_KEY, JSON.stringify({audits:state.audits, activeAuditId:state.activeAuditId})); }
+  function saveChecklistLocal(){ try{ localStorage.setItem(CHECKLIST_STORAGE_KEY,JSON.stringify({currentVersionId:masterChecklist.versionId,versions:checklistVersions})); }catch{} }
+  function loadChecklistLocal(){
+    try{
+      const raw=JSON.parse(localStorage.getItem(CHECKLIST_STORAGE_KEY)||'{}');
+      const versions=Array.isArray(raw.versions)?raw.versions:[];
+      const active=versions.find(v=>v.versionId===raw.currentVersionId);
+      if(active && Array.isArray(active.data) && active.data.length){ checklistVersions=versions; masterChecklist=active; }
+    }catch{}
+    criteria=masterChecklist.data;
+  }
   function saveUiState(){
     try{ localStorage.setItem(UI_STATE_KEY,JSON.stringify({lastAadByAudit:state.lastAadByAudit||{}})); }catch{}
   }
@@ -143,7 +172,7 @@
       await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
       auth.onAuthStateChanged(async user=>{
         if(user){
-          state.user=user; state.offlineMode=false; setLoginError(''); showApp('cloud'); await loadCloud();
+          state.user=user; state.offlineMode=false; setLoginError(''); showApp('cloud'); await loadChecklistRegistry(); await loadCloud();
         } else if(!state.offlineMode){
           state.user=null; state.audits=[]; state.activeAuditId=null; showLogin();
         }
@@ -163,7 +192,31 @@
     finally{ els.loginBtn.disabled=false; els.loginBtn.textContent='Giriş Yap'; }
   }
   function enterOfflineMode(){
-    state.offlineMode=true; state.user=null; loadLocal(); showApp('local'); renderAll();
+    state.offlineMode=true; state.user=null; loadChecklistLocal(); loadLocal(); activateAuditCriteria(currentAudit()); showApp('local'); renderAll();
+  }
+
+  function initialChecklistVersion(){
+    return {versionId:BUNDLED_VERSION_ID,versionName:BUNDLED_VERSION_NAME,formatVersion:T.formatVersion||'',createdAt:nowIso(),createdBy:state.user?.email||'Uygulama paketi',notes:'v15 devreye alınırken mevcut FR.13 kontrol listesi başlangıç sürümü olarak kaydedildi.',itemCount:BUNDLED_CRITERIA.length,data:deepClone(BUNDLED_CRITERIA)};
+  }
+  async function loadChecklistRegistry(){
+    state.checklistPermissionError=false;
+    if(!state.firebase || !state.user){ loadChecklistLocal(); return; }
+    try{
+      const snap=await state.firebase.db.ref('fr13_checklists').once('value');
+      const raw=snap.val()||{};
+      let versions=raw.versions ? Object.values(raw.versions) : [];
+      if(!versions.length){
+        const initial=initialChecklistVersion();
+        await state.firebase.db.ref('fr13_checklists').update({currentVersionId:initial.versionId,[`versions/${initial.versionId}`]:initial});
+        versions=[initial]; raw.currentVersionId=initial.versionId;
+      }
+      versions=versions.filter(v=>v && v.versionId && Array.isArray(v.data) && v.data.length).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+      const active=versions.find(v=>v.versionId===raw.currentVersionId)||versions[0];
+      if(active){ checklistVersions=versions; masterChecklist=active; criteria=active.data; saveChecklistLocal(); }
+    }catch(err){
+      console.warn('Kontrol listesi registry yüklenemedi',err);
+      state.checklistPermissionError=true; loadChecklistLocal();
+    }
   }
 
   async function loadCloud(){
@@ -179,22 +232,30 @@
         const la=localAudits.find(a=>a.id===id); if(!la){clearPendingSync(id);continue;}
         const cloudUpdated=raw[id]?.updatedAt||'';
         if(!raw[id] || (la.updatedAt||'')>cloudUpdated){
-          try{ const payload={...la}; delete payload.id; await state.firebase.db.ref('fr13_audits/'+id).set(payload); raw[id]=payload; clearPendingSync(id); }
+          try{ const payload=auditPayload(la); await state.firebase.db.ref('fr13_audits/'+id).set(payload); raw[id]=payload; clearPendingSync(id); }
           catch(err){ console.error('Bekleyen kayıt eşitlenemedi',id,err); }
         } else clearPendingSync(id);
       }
     }
     state.audits=Object.entries(raw).map(([id,data])=>normalizeAudit({id,...(data||{})})).sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||''));
+    // v15 geçişi: v15 öncesi denetimlere, o dönemde kullanılan başlangıç listesinin snapshot'ını bir kez bağla.
+    const migrations=state.audits.filter(a=>a.__needsSnapshotPersist);
+    for(const a of migrations){
+      try{
+        await state.firebase.db.ref('fr13_audits/'+a.id).update({checklistSnapshot:a.checklistSnapshot,checklistVersionId:a.checklistVersionId,checklistVersionName:a.checklistVersionName,formVersion:a.formVersion});
+        a.__needsSnapshotPersist=false;
+      }catch(err){ console.warn('Kontrol listesi snapshot geçişi yazılamadı',a.id,err); }
+    }
     const preferred=local.activeAuditId;
     state.activeAuditId=state.audits.some(a=>a.id===preferred)?preferred:(state.audits[0]?.id||null);
-    saveLocal(); setSaveStatus('saved'); renderAll();
+    activateAuditCriteria(currentAudit()); saveLocal(); setSaveStatus('saved'); renderAll();
   }
   async function persistAudit(a){
     a.updatedAt=nowIso();
     saveLocal();
     if(state.firebase && state.user && !state.offlineMode){
       markPendingSync(a.id);
-      const payload={...a}; delete payload.id;
+      const payload=auditPayload(a);
       await state.firebase.db.ref('fr13_audits/'+a.id).set(payload);
       clearPendingSync(a.id);
     }
@@ -237,10 +298,10 @@
   function isOpenFollowUpTiming(timing){ return ['pending','undated','overdue','today'].includes(timing); }
   function addDaysDateString(days){ const d=new Date(); d.setHours(12,0,0,0); d.setDate(d.getDate()+days); return localDateString(d); }
 
-  function renderAll(){ renderAuditList(); renderWorkspace(); }
+  function renderAll(){ activateAuditCriteria(currentAudit()); renderAuditList(); renderWorkspace(); }
   function auditFollowUpCounts(a){
     let pending=0, overdue=0;
-    criteria.forEach(i=>{
+    auditCriteria(a).forEach(i=>{
       const r=getResponse(a,i.htmlKey); const timing=followUpTiming(r);
       if(isOpenFollowUpTiming(timing)) pending++;
       if(timing==='overdue') overdue++;
@@ -292,11 +353,12 @@
   }
 
   function renderWorkspace(){
-    const a=currentAudit(); els.emptyState.classList.toggle('hidden',!!a); els.workspace.classList.toggle('hidden',!a); if(!a)return;
+    const a=currentAudit(); els.emptyState.classList.toggle('hidden',!!a); els.workspace.classList.toggle('hidden',!a); if(!a){activateAuditCriteria(null);return;}
+    activateAuditCriteria(a);
     els.auditNoLabel.textContent=a.auditNo||'DENETİM'; els.auditTitle.textContent=a.organizationName||'-';
     els.auditMeta.textContent=[a.startDate&&('Başlangıç: '+formatDate(a.startDate)),a.endDate&&('Bitiş: '+formatDate(a.endDate)),a.leadAuditor&&('Baş denetçi: '+a.leadAuditor),a.status].filter(Boolean).join(' • ');
     if(els.summaryAuditStatus) els.summaryAuditStatus.textContent=a.status||'Taslak';
-    if(els.summaryFormVersion) els.summaryFormVersion.textContent=`${a.templateId||T.templateId||'FR.13'} • ${a.formVersion||T.formatVersion||'—'}`;
+    if(els.summaryFormVersion) els.summaryFormVersion.textContent=`${a.templateId||T.templateId||'FR.13'} • ${a.checklistVersionName||a.formVersion||T.formatVersion||'—'}`;
     if(els.summaryAuditors) els.summaryAuditors.textContent=[a.leadAuditor,a.auditors].filter(Boolean).join(' • ')||'Denetim ekibi girilmedi.';
     if(els.summaryGeneralNote) els.summaryGeneralNote.textContent=a.generalNote||'Genel denetim notu girilmedi.';
     renderFindingSummaryPanel(); renderFollowUpPanel(); renderQuestions(); updateKpis(); applyWorkspaceView();
@@ -613,7 +675,8 @@
     });
     els.kpiProgress.textContent=`${assessed}/${criteria.length}`;
     els.kpiCompliant.textContent=compliant; els.kpiNoncompliant.textContent=noncompliant; els.kpiNA.textContent=na; els.kpiNotAsked.textContent=notAsked;
-    els.kpiRemote.textContent=`${remote}/23`; els.kpiOnsite.textContent=`${onsite}/35`; els.kpiPending.textContent=pending; els.kpiOverdue.textContent=overdue; els.kpiUndated.textContent=undated;
+    const typeTotals={remote:criteria.filter(i=>i.auditType==='Uzaktan').length,onsite:criteria.filter(i=>i.auditType==='Yerinde').length};
+    els.kpiRemote.textContent=`${remote}/${typeTotals.remote}`; els.kpiOnsite.textContent=`${onsite}/${typeTotals.onsite}`; els.kpiPending.textContent=pending; els.kpiOverdue.textContent=overdue; els.kpiUndated.textContent=undated;
     const pct=Math.round((assessed/criteria.length)*100);
     if(els.auditProgressBar) els.auditProgressBar.style.width=pct+'%';
     if(els.auditProgressPercent) els.auditProgressPercent.textContent='%'+pct;
@@ -720,7 +783,9 @@
   }
 
   function openAuditDialog(a=null){
-    els.auditDialogTitle.textContent=a?'Denetim bilgilerini düzenle':'Yeni denetim'; els.auditId.value=a?.id||''; els.organizationName.value=a?.organizationName||'';
+    els.auditDialogTitle.textContent=a?'Denetim bilgilerini düzenle':'Yeni denetim';
+    if(els.auditChecklistVersionHint) els.auditChecklistVersionHint.textContent=a ? `Bu denetim ${a.checklistVersionName||a.formVersion||'başlangıç'} kontrol listesi snapshot'ını kullanıyor.` : `Yeni denetim aktif sürüm olan “${masterChecklist.versionName||T.formatVersion}” ile oluşturulacak.`;
+    els.auditId.value=a?.id||''; els.organizationName.value=a?.organizationName||'';
     els.auditNo.value=a?.auditNo||''; els.auditStatus.value=a?.status||'Taslak'; els.auditStartDate.value=a?.startDate||''; els.auditEndDate.value=a?.endDate||'';
     els.leadAuditor.value=a?.leadAuditor||''; els.auditors.value=a?.auditors||''; els.auditGeneralNote.value=a?.generalNote||'';
     if(els.deleteAuditBtn) els.deleteAuditBtn.classList.toggle('hidden',!a);
@@ -729,7 +794,11 @@
   async function saveAuditFromDialog(e){
     e.preventDefault(); if(!els.organizationName.value.trim()){els.organizationName.focus();return;}
     let a=currentAudit(); const editing=!!els.auditId.value;
-    if(!editing){a={id:uid(),templateId:T.templateId,formVersion:T.formatVersion,createdAt:nowIso(),createdBy:state.user?.email||'local',responses:{}};state.audits.unshift(a);state.activeAuditId=a.id;state.expandedAads.clear();state.workspaceView='checklist';}
+    if(!editing){
+      const activeMaster=masterChecklist && Array.isArray(masterChecklist.data) ? masterChecklist : initialChecklistVersion();
+      a={id:uid(),templateId:T.templateId,formVersion:activeMaster.formatVersion||activeMaster.versionName||T.formatVersion,checklistVersionId:activeMaster.versionId,checklistVersionName:activeMaster.versionName,checklistSnapshot:deepClone(activeMaster.data),createdAt:nowIso(),createdBy:state.user?.email||'local',responses:{}};
+      state.audits.unshift(a);state.activeAuditId=a.id;state.expandedAads.clear();state.workspaceView='checklist';activateAuditCriteria(a);
+    }
     Object.assign(a,{organizationName:els.organizationName.value.trim(),auditNo:els.auditNo.value.trim(),status:els.auditStatus.value,startDate:els.auditStartDate.value,endDate:els.auditEndDate.value,leadAuditor:els.leadAuditor.value.trim(),auditors:els.auditors.value.trim(),generalNote:els.auditGeneralNote.value.trim()});
     await persistAudit(a); els.auditDialog.close(); renderAll(); toast('Denetim kaydedildi.');
   }
@@ -740,7 +809,7 @@
     const label=[a.auditNo,a.organizationName].filter(Boolean).join(' — ') || 'Bu denetim';
     const cloudDelete=!!(state.firebase && state.user && !state.offlineMode);
     const message=cloudDelete
-      ? `“${label}” kaydını kalıcı olarak silmek istediğinize emin misiniz?\n\nDenetim üst bilgileri, 58 AAD'ye ait değerlendirmeler, notlar ve takip kayıtları Firebase Realtime Database'den ve bu cihazdaki yerel yedekten silinecektir. Bu işlem geri alınamaz.`
+      ? `“${label}” kaydını kalıcı olarak silmek istediğinize emin misiniz?\n\nDenetim üst bilgileri, ${criteria.length} AAD'ye ait değerlendirmeler, notlar ve takip kayıtları Firebase Realtime Database'den ve bu cihazdaki yerel yedekten silinecektir. Bu işlem geri alınamaz.`
       : `“${label}” kaydını bu cihazdaki yerel kayıtlardan silmek istediğinize emin misiniz?\n\nÇevrimdışı modda Firebase üzerindeki bir kayıt silinmez.`;
     if(!window.confirm(message)) return;
     const id=a.id;
@@ -854,10 +923,10 @@
         ['İşletme / Kuruluş',a.organizationName||''],['Denetim No',a.auditNo||''],['Durum',a.status||''],
         ['Başlangıç Tarihi',a.startDate?formatDate(a.startDate):''],['Bitiş Tarihi',a.endDate?formatDate(a.endDate):''],
         ['Baş Denetçi',a.leadAuditor||''],['Denetim Ekibi',a.auditors||''],['Genel Denetim Notu',a.generalNote||''],
-        ['Form',`${T.templateId} / ${T.formatVersion}`],['Dışa Aktarım Zamanı',new Date().toLocaleString('tr-TR')],[],
+        ['Form',`${a.templateId||T.templateId} / ${a.checklistVersionName||a.formVersion||T.formatVersion}`],['Dışa Aktarım Zamanı',new Date().toLocaleString('tr-TR')],[],
         ['DEĞERLENDİRME ÖZETİ','ADET / DURUM'],
         ['Değerlendirilen AAD',`${st.assessed}/${criteria.length} (%${st.percent})`],['Uygun',st.compliant],['Uygun Değil',st.noncompliant],['N/A',st.na],['Sorulmadı',st.notAsked],
-        ['Uzaktan tamamlanan',`${st.remote}/23`],['Yerinde tamamlanan',`${st.onsite}/35`],[],
+        ['Uzaktan tamamlanan',`${st.remote}/${criteria.filter(i=>i.auditType==='Uzaktan').length}`],['Yerinde tamamlanan',`${st.onsite}/${criteria.filter(i=>i.auditType==='Yerinde').length}`],[],
         ['TESPİT ÖZETİ','ADET'],['Seviye 1',st.level1],['Seviye 2',st.level2],['Gözlem',st.observation],['Eksik bulgu bilgisi',st.incompleteFindings],[],
         ['TAKİP ÖZETİ','ADET'],['Açık / Bekleyen',st.pending],['Gecikmiş',st.overdue],['Tarihsiz',st.undated]
       ];
@@ -904,7 +973,7 @@
         {table:{widths:['*','*','*','*'],body:[
           [{text:'İlerleme',style:'summaryLabel'},{text:'Uygun',style:'summaryLabel'},{text:'Uygun Değil',style:'summaryLabel'},{text:'Takip / Bekleyen',style:'summaryLabel'}],
           [{text:`${st.assessed}/${criteria.length}  (%${st.percent})`,style:'summaryValue'},{text:String(st.compliant),style:'summaryValueGood'},{text:String(st.noncompliant),style:'summaryValueBad'},{text:String(st.pending),style:'summaryValueWarn'}],
-          [{text:`Uzaktan ${st.remote}/23 • Yerinde ${st.onsite}/35`,colSpan:2,style:'summarySub'},{},{text:`N/A ${st.na} • Sorulmadı ${st.notAsked}`,style:'summarySub'},{text:`Gecikmiş ${st.overdue} • Tarihsiz ${st.undated}`,style:'summarySub'}]
+          [{text:`Uzaktan ${st.remote}/${criteria.filter(i=>i.auditType==='Uzaktan').length} • Yerinde ${st.onsite}/${criteria.filter(i=>i.auditType==='Yerinde').length}`,colSpan:2,style:'summarySub'},{},{text:`N/A ${st.na} • Sorulmadı ${st.notAsked}`,style:'summarySub'},{text:`Gecikmiş ${st.overdue} • Tarihsiz ${st.undated}`,style:'summarySub'}]
         ]},layout:'lightHorizontalLines',margin:[0,0,0,12]},
         {text:'Tespit Özeti',style:'sectionTitle'},
         {table:{widths:['*','*','*'],body:[
@@ -978,12 +1047,157 @@
 
   function exportAudit(){
     const a=currentAudit(); if(!a)return;
-    const payload={...a,template:{id:T.templateId,version:T.formatVersion},criteriaSnapshot:criteria};
+    const payload={...auditPayload(a),id:a.id,template:{id:a.templateId||T.templateId,version:a.checklistVersionName||a.formVersion||T.formatVersion},criteriaSnapshot:criteria};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json;charset=utf-8'}); const url=URL.createObjectURL(blob); const x=document.createElement('a');
     x.href=url; x.download=exportFileBase(a)+'.json'; x.click(); setTimeout(()=>URL.revokeObjectURL(url),500);
   }
 
+  const CHECKLIST_FIELDS=[
+    ['questionNo','Soru No'],['questionCode','Soru Kodu'],['shortCode','Kısa Kod'],['aadCode','AAD'],['auditType','Denetim Türü'],['reference','Mevzuat / Referans'],['question','Soru'],['atomicCriterion','Atomik Kriter'],['auditorGuidance','Denetçi Açıklaması'],['sourcePage','Kaynak Sayfa']
+  ];
+  function checklistSafeText(v){ return v===null||v===undefined ? '' : String(v).trim(); }
+  function checklistSlug(s){ return checklistSafeText(s).toLocaleLowerCase('tr-TR').replace(/ı/g,'i').replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s').replace(/ö/g,'o').replace(/ç/g,'c').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
+  function normalizeChecklistRows(rows){
+    const out=[]; const errors=[]; const seen=new Set();
+    rows.forEach((row,idx)=>{
+      const excelRow=idx+2;
+      const shortCode=checklistSafeText(row.shortCode||row['Kısa Kod']||row['Soru Kısa Kodu']);
+      const aadCode=checklistSafeText(row.aadCode||row.AAD||row['AAD Kodu']);
+      const auditType=checklistSafeText(row.auditType||row['Denetim Türü']);
+      const question=checklistSafeText(row.question||row.Soru);
+      const atomicCriterion=checklistSafeText(row.atomicCriterion||row['Atomik Kriter']);
+      if(!shortCode && !aadCode && !question && !atomicCriterion) return;
+      if(!shortCode) errors.push(`Satır ${excelRow}: shortCode / Kısa Kod boş.`);
+      if(!aadCode) errors.push(`Satır ${excelRow}: aadCode / AAD boş.`);
+      if(!['Uzaktan','Yerinde'].includes(auditType)) errors.push(`Satır ${excelRow}: Denetim Türü “Uzaktan” veya “Yerinde” olmalıdır.`);
+      if(!question) errors.push(`Satır ${excelRow}: Soru boş.`);
+      if(!atomicCriterion) errors.push(`Satır ${excelRow}: Atomik Kriter boş.`);
+      const htmlKey=checklistSafeText(row.htmlKey) || `fr13-${checklistSlug(shortCode)}-${checklistSlug(aadCode)}`;
+      if(seen.has(htmlKey)) errors.push(`Satır ${excelRow}: htmlKey tekrar ediyor (${htmlKey}).`); seen.add(htmlKey);
+      const qnRaw=row.questionNo??row['Soru No']??''; const idRaw=row.id??'';
+      out.push({
+        id:Number(idRaw)||out.length+1, htmlKey,
+        questionNo:Number(qnRaw)||0,
+        questionCode:checklistSafeText(row.questionCode||row['Soru Kodu']) || (shortCode?`SHGM.EYU.${shortCode}`:''),
+        shortCode,aadCode,auditType,
+        reference:checklistSafeText(row.reference||row['Mevzuat / Referans']),
+        question,atomicCriterion,
+        auditorGuidance:checklistSafeText(row.auditorGuidance||row['Denetçi Açıklaması / Kabul Edilebilir Kanıtlar']||row['Denetçi Açıklaması']),
+        sourcePage:Number(row.sourcePage||row['Kaynak Sayfa'])||''
+      });
+    });
+    if(!out.length) errors.push('Excel dosyasında kullanılabilir AAD satırı bulunamadı.');
+    // Eksik soru numaralarını ilk görünüm sırasına göre deterministik üret.
+    const qMap=new Map(); let qCounter=0;
+    out.forEach(x=>{ const key=x.questionCode||x.shortCode; if(!qMap.has(key))qMap.set(key,++qCounter); if(!x.questionNo)x.questionNo=qMap.get(key); });
+    out.forEach((x,i)=>{x.id=i+1;});
+    return {data:out,errors};
+  }
+  function compareChecklists(oldData,newData){
+    const oldMap=new Map((oldData||[]).map(x=>[x.htmlKey,x])); const newMap=new Map((newData||[]).map(x=>[x.htmlKey,x]));
+    const added=[],removed=[],modified=[];
+    newMap.forEach((n,key)=>{ if(!oldMap.has(key)) added.push(n); else { const o=oldMap.get(key); const changes=[]; CHECKLIST_FIELDS.forEach(([f,label])=>{ if(checklistSafeText(o[f])!==checklistSafeText(n[f])) changes.push(label); }); if(changes.length) modified.push({old:o,item:n,changes}); } });
+    oldMap.forEach((o,key)=>{if(!newMap.has(key))removed.push(o);});
+    return {added,removed,modified,unchanged:newData.length-added.length-modified.length};
+  }
+  function currentChecklistVersionText(){ return masterChecklist?.versionName||masterChecklist?.formatVersion||'Başlangıç'; }
+  function renderChecklistManager(){
+    if(!els.checklistDialog) return;
+    const c=masterChecklist||initialChecklistVersion();
+    els.checklistActiveName.textContent=c.versionName||'Adsız sürüm';
+    const remote=(c.data||[]).filter(x=>x.auditType==='Uzaktan').length, onsite=(c.data||[]).filter(x=>x.auditType==='Yerinde').length;
+    els.checklistActiveMeta.textContent=`${(c.data||[]).length} AAD • ${remote} Uzaktan • ${onsite} Yerinde${c.createdAt?' • '+new Date(c.createdAt).toLocaleString('tr-TR'):''}`;
+    els.checklistActiveNote.textContent=c.notes||'Sürüm notu bulunmuyor.';
+    if(els.checklistCloudStatus){
+      if(state.offlineMode) els.checklistCloudStatus.textContent='Çevrimdışı mod: kontrol listesi sürümleri yalnız bu tarayıcıda saklanır.';
+      else if(state.checklistPermissionError) els.checklistCloudStatus.textContent='Firebase fr13_checklists erişimi kapalı. v15 Database Rules kuralını yayımlayın.';
+      else els.checklistCloudStatus.textContent='Kontrol listesi sürümleri Firebase Realtime Database üzerinde saklanıyor.';
+      els.checklistCloudStatus.className='checklist-cloud-status '+(state.checklistPermissionError?'danger':state.offlineMode?'warn':'ok');
+    }
+    const d=state.checklistDraft;
+    els.checklistPublishBtn.disabled=!d?.data?.length || !!d?.errors?.length || state.offlineMode || state.checklistPermissionError;
+    els.checklistClearDraftBtn.disabled=!d;
+    if(!d){
+      els.checklistImportStatus.textContent='Yeni sürüm için mevcut listeyi Excel’e aktarın, düzenleyin ve bu alandan geri yükleyin.';
+      els.checklistDiffSummary.innerHTML='<div class="checklist-empty">Henüz karşılaştırılacak Excel seçilmedi.</div>';
+      els.checklistDiffTable.innerHTML='';
+    }else if(d.errors?.length){
+      els.checklistImportStatus.textContent=`Excel doğrulanamadı • ${d.errors.length} hata`;
+      els.checklistDiffSummary.innerHTML=`<div class="checklist-error-list">${d.errors.slice(0,12).map(x=>`<div>• ${esc(x)}</div>`).join('')}${d.errors.length>12?`<div>… ve ${d.errors.length-12} hata daha</div>`:''}</div>`;
+      els.checklistDiffTable.innerHTML='';
+    }else{
+      const x=d.diff;
+      els.checklistImportStatus.textContent=`${d.fileName} • ${d.data.length} AAD doğrulandı`;
+      els.checklistDiffSummary.innerHTML=`<div class="checklist-diff-kpis"><div class="added"><strong>${x.added.length}</strong><span>Yeni AAD</span></div><div class="removed"><strong>${x.removed.length}</strong><span>Kaldırılan</span></div><div class="modified"><strong>${x.modified.length}</strong><span>Değişen</span></div><div><strong>${x.unchanged}</strong><span>Aynı</span></div></div>`;
+      const rows=[
+        ...x.added.map(i=>({type:'Yeni',cls:'added',i,detail:'Yeni AAD'})),
+        ...x.removed.map(i=>({type:'Kaldırıldı',cls:'removed',i,detail:'Yeni sürümde bulunmuyor'})),
+        ...x.modified.map(m=>({type:'Değişti',cls:'modified',i:m.item,detail:m.changes.join(', ')}))
+      ];
+      els.checklistDiffTable.innerHTML=rows.length?rows.map(r=>`<tr><td><span class="diff-chip ${r.cls}">${r.type}</span></td><td><b>${esc(r.i.shortCode||'')}</b> / ${esc(r.i.aadCode||'')}</td><td>${esc(r.detail)}</td><td>${esc((r.i.atomicCriterion||'').slice(0,180))}</td></tr>`).join(''):'<tr><td colspan="4" class="checklist-empty">İçerik farkı bulunmadı. Yine de yeni bir sürüm yayımlayabilirsiniz.</td></tr>';
+    }
+    const versions=[...(checklistVersions||[])].sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+    els.checklistVersionList.innerHTML=versions.map(v=>{
+      const active=v.versionId===masterChecklist?.versionId;
+      return `<article class="checklist-version-card ${active?'active':''}"><div><div class="version-title">${esc(v.versionName||v.versionId)} ${active?'<span class="current-version-badge">AKTİF</span>':''}</div><div class="version-meta">${v.itemCount||v.data?.length||0} AAD${v.createdAt?' • '+new Date(v.createdAt).toLocaleString('tr-TR'):''}${v.createdBy?' • '+esc(v.createdBy):''}</div><div class="version-note">${esc(v.notes||'Sürüm notu yok')}</div></div>${active?'':`<button type="button" class="btn secondary small activate-checklist-version" data-version-id="${esc(v.versionId)}" ${(state.offlineMode||state.checklistPermissionError)?'disabled':''}>Aktif yap</button>`}</article>`;
+    }).join('')||'<div class="checklist-empty">Sürüm geçmişi bulunamadı.</div>';
+    els.checklistVersionList.querySelectorAll('.activate-checklist-version').forEach(b=>b.onclick=()=>activateChecklistVersion(b.dataset.versionId));
+  }
+  function openChecklistManager(){ state.checklistDraft=null; els.checklistExcelInput.value=''; els.checklistVersionName.value=''; els.checklistVersionNotes.value=''; renderChecklistManager(); els.checklistDialog.showModal(); }
+  function exportCurrentChecklistExcel(){
+    if(typeof XLSX==='undefined'){toast('Excel kütüphanesi yüklenemedi.');return;}
+    const data=(masterChecklist?.data||[]).map(x=>({id:x.id,htmlKey:x.htmlKey,questionNo:x.questionNo,questionCode:x.questionCode,shortCode:x.shortCode,aadCode:x.aadCode,auditType:x.auditType,reference:x.reference,question:x.question,atomicCriterion:x.atomicCriterion,auditorGuidance:x.auditorGuidance,sourcePage:x.sourcePage}));
+    const wb=XLSX.utils.book_new(); const ws=XLSX.utils.json_to_sheet(data); ws['!autofilter']={ref:ws['!ref']}; setSheetWidths(ws,[7,28,10,22,12,10,14,42,48,70,75,12]); XLSX.utils.book_append_sheet(wb,ws,'FR13_DATA');
+    const meta=XLSX.utils.aoa_to_sheet([['Alan','Değer'],['templateId',T.templateId],['activeVersionId',masterChecklist.versionId],['activeVersionName',masterChecklist.versionName],['exportedAt',new Date().toISOString()],['AAD Count',data.length],[],['KULLANIM'],['FR13_DATA sayfasını düzenleyin. htmlKey değerlerini mevcut AAD’lerde değiştirmeyin. Yeni AAD için htmlKey boş bırakılırsa sistem kısa kod + AAD kodundan otomatik üretir.']]); setSheetWidths(meta,[24,110]); XLSX.utils.book_append_sheet(wb,meta,'META');
+    XLSX.writeFile(wb,`FR13_Kontrol_Listesi_${checklistSlug(masterChecklist.versionName||'aktif')}.xlsx`); toast('Aktif kontrol listesi Excel’e aktarıldı.');
+  }
+  async function handleChecklistExcel(file){
+    if(!file)return; state.checklistDraft=null; els.checklistImportStatus.textContent='Excel okunuyor…'; renderChecklistManager();
+    try{
+      const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:'array'}); const sheetName=wb.SheetNames.includes('FR13_DATA')?'FR13_DATA':wb.SheetNames[0]; if(!sheetName)throw new Error('Çalışma sayfası bulunamadı.');
+      const rows=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{defval:'',raw:false}); const normalized=normalizeChecklistRows(rows); const diff=normalized.errors.length?null:compareChecklists(masterChecklist.data,normalized.data);
+      state.checklistDraft={fileName:file.name,data:normalized.data,errors:normalized.errors,diff};
+      if(!normalized.errors.length && !els.checklistVersionName.value.trim()){ const d=new Date(); els.checklistVersionName.value=`FR.13 ${d.toLocaleDateString('tr-TR')}`; }
+    }catch(err){ state.checklistDraft={fileName:file.name,data:[],errors:[err?.message||String(err)],diff:null}; }
+    renderChecklistManager();
+  }
+  async function publishChecklistVersion(){
+    if(state.offlineMode){window.alert('Kontrol listesi sürümü çevrimdışı modda yayımlanmaz. Firebase ile giriş yapınız.');return;}
+    if(state.checklistPermissionError){window.alert('Firebase Database Rules içinde fr13_checklists erişimini etkinleştirmeden yeni sürüm yayımlanamaz.');return;}
+    const d=state.checklistDraft; if(!d?.data?.length || d.errors?.length)return;
+    const versionName=els.checklistVersionName.value.trim(); if(!versionName){els.checklistVersionName.focus();toast('Sürüm adını giriniz.');return;}
+    const notes=els.checklistVersionNotes.value.trim(); const x=d.diff;
+    const msg=`Yeni kontrol listesi sürümü yayımlansın mı?\n\n${versionName}\n${d.data.length} AAD • ${x.added.length} yeni • ${x.removed.length} kaldırılan • ${x.modified.length} değişen\n\nMevcut denetimler değişmeyecek; yalnız bundan sonra oluşturulan yeni denetimler bu sürümü kullanacaktır.`;
+    if(!window.confirm(msg))return;
+    const stamp=new Date().toISOString().replace(/[-:TZ.]/g,'').slice(0,14); const versionId=`v${stamp}_${Math.random().toString(36).slice(2,6)}`;
+    const entry={versionId,versionName,formatVersion:versionName,createdAt:nowIso(),createdBy:state.user?.email||'local',notes,itemCount:d.data.length,data:deepClone(d.data),changeSummary:{added:x.added.length,removed:x.removed.length,modified:x.modified.length,baseVersionId:masterChecklist.versionId}};
+    els.checklistPublishBtn.disabled=true; els.checklistPublishBtn.textContent='Yayımlanıyor…';
+    try{
+      if(state.firebase && state.user && !state.offlineMode){
+        await state.firebase.db.ref('fr13_checklists').update({currentVersionId:versionId,[`versions/${versionId}`]:entry}); state.checklistPermissionError=false;
+      }
+      checklistVersions=[entry,...checklistVersions.filter(v=>v.versionId!==entry.versionId)]; masterChecklist=entry; activateAuditCriteria(currentAudit()); saveChecklistLocal(); state.checklistDraft=null; els.checklistExcelInput.value=''; els.checklistVersionName.value=''; els.checklistVersionNotes.value=''; renderChecklistManager(); renderAuditList(); toast('Yeni kontrol listesi sürümü aktif edildi.');
+    }catch(err){ console.error(err); state.checklistPermissionError=true; renderChecklistManager(); window.alert('Kontrol listesi Firebase’e kaydedilemedi. Database Rules içinde fr13_checklists iznini kontrol edin.\n\n'+(err?.message||err)); }
+    finally{els.checklistPublishBtn.disabled=false;els.checklistPublishBtn.textContent='Yeni Sürümü Yayımla';}
+  }
+  async function activateChecklistVersion(versionId){
+    if(state.offlineMode){window.alert('Aktif master sürümü değiştirmek için Firebase ile giriş yapınız.');return;}
+    if(state.checklistPermissionError){window.alert('Firebase Database Rules içinde fr13_checklists erişimini etkinleştiriniz.');return;}
+    const v=checklistVersions.find(x=>x.versionId===versionId); if(!v)return;
+    if(!window.confirm(`“${v.versionName}” sürümü yeni denetimler için aktif yapılsın mı?\n\nMevcut denetimlerin kontrol listeleri değişmeyecektir.`))return;
+    try{
+      if(state.firebase && state.user && !state.offlineMode) await state.firebase.db.ref('fr13_checklists/currentVersionId').set(v.versionId);
+      masterChecklist=v; activateAuditCriteria(currentAudit()); saveChecklistLocal(); renderChecklistManager(); toast('Aktif kontrol listesi sürümü değiştirildi.');
+    }catch(err){console.error(err);window.alert('Sürüm aktif edilemedi: '+(err?.message||err));}
+  }
+
   els.newAuditBtn.onclick=()=>openAuditDialog(); els.editAuditBtn.onclick=()=>openAuditDialog(currentAudit()); els.auditForm.addEventListener('submit',saveAuditFromDialog); if(els.deleteAuditBtn) els.deleteAuditBtn.onclick=deleteCurrentAudit;
+  if(els.checklistManagerBtn) els.checklistManagerBtn.onclick=openChecklistManager;
+  if(els.checklistCloseBtn) els.checklistCloseBtn.onclick=()=>els.checklistDialog.close();
+  if(els.checklistExportBtn) els.checklistExportBtn.onclick=exportCurrentChecklistExcel;
+  if(els.checklistExcelInput) els.checklistExcelInput.addEventListener('change',e=>handleChecklistExcel(e.target.files?.[0]));
+  if(els.checklistPublishBtn) els.checklistPublishBtn.onclick=publishChecklistVersion;
+  if(els.checklistClearDraftBtn) els.checklistClearDraftBtn.onclick=()=>{state.checklistDraft=null;els.checklistExcelInput.value='';renderChecklistManager();};
   document.querySelectorAll('.cancel-dialog').forEach(b=>b.onclick=()=>els.auditDialog.close());
   els.auditSearch.addEventListener('input',renderAuditList);
   [els.criterionSearch,els.typeFilter,els.resultFilter,els.followUpFilter].forEach(x=>x.addEventListener('input',renderQuestions));
