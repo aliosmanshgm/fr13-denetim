@@ -15,13 +15,13 @@
   const $ = (id) => document.getElementById(id);
   const els = {
     loginOverlay:$('loginOverlay'), loginEmail:$('loginEmail'), loginPass:$('loginPass'), loginBtn:$('loginBtn'), offlineBtn:$('offlineBtn'), loginError:$('loginError'), firebaseConfigHint:$('firebaseConfigHint'),
-    appHeader:$('appHeader'), appShell:$('appShell'), storageBadge:$('storageBadge'), saveStatusBadge:$('saveStatusBadge'), saveStatusDetail:$('saveStatusDetail'), currentUserLabel:$('currentUserLabel'), signOutBtn:$('signOutBtn'),
+    appHeader:$('appHeader'), appShell:$('appShell'), storageBadge:$('storageBadge'), saveStatusBadge:$('saveStatusBadge'), saveStatusDetail:$('saveStatusDetail'), currentUserLabel:$('currentUserLabel'), signOutBtn:$('signOutBtn'), headerFirebaseInline:$('headerFirebaseInline'), headerProgressInline:$('headerProgressInline'), headerProgressBar:$('headerProgressBar'), auditStatusChip:$('auditStatusChip'),
     auditList:$('auditList'), auditSearch:$('auditSearch'), newAuditBtn:$('newAuditBtn'), checklistManagerBtn:$('checklistManagerBtn'),
     emptyState:$('emptyState'), workspace:$('auditWorkspace'), auditNoLabel:$('auditNoLabel'), auditTitle:$('auditTitle'), auditMeta:$('auditMeta'),
     editAuditBtn:$('editAuditBtn'), exportMenuBtn:$('exportMenuBtn'), exportMenu:$('exportMenu'), excelExportBtn:$('excelExportBtn'), pdfExportBtn:$('pdfExportBtn'), exportBtn:$('exportBtn'), printBtn:$('printBtn'), auditLockBanner:$('auditLockBanner'), auditLockDetail:$('auditLockDetail'), reopenAuditBtn:$('reopenAuditBtn'),
     workspaceNav:$('workspaceNav'), workspaceViewChecklist:$('workspaceViewChecklist'), workspaceViewFindings:$('workspaceViewFindings'), workspaceViewPending:$('workspaceViewPending'), workspaceViewSummary:$('workspaceViewSummary'), navChecklistCount:$('navChecklistCount'), navFindingCount:$('navFindingCount'), navPendingCount:$('navPendingCount'), workspaceQuickProgress:$('workspaceQuickProgress'), workspaceQuickAlert:$('workspaceQuickAlert'), summaryAuditStatus:$('summaryAuditStatus'), summaryFormVersion:$('summaryFormVersion'), summaryAuditors:$('summaryAuditors'), summaryGeneralNote:$('summaryGeneralNote'),
     kpiProgress:$('kpiProgress'), kpiCompliant:$('kpiCompliant'), kpiNoncompliant:$('kpiNoncompliant'), kpiNA:$('kpiNA'), kpiNotAsked:$('kpiNotAsked'), kpiRemote:$('kpiRemote'), kpiOnsite:$('kpiOnsite'),
-    kpiPending:$('kpiPending'), kpiOverdue:$('kpiOverdue'), kpiUndated:$('kpiUndated'), auditProgressBar:$('auditProgressBar'), auditProgressPercent:$('auditProgressPercent'), findingSummaryPanel:$('findingSummaryPanel'), findingSummaryList:$('findingSummaryList'), findingSummaryAttention:$('findingSummaryAttention'), findingLevel1Count:$('findingLevel1Count'), findingLevel2Count:$('findingLevel2Count'), findingObservationCount:$('findingObservationCount'), showNoncompliantBtn:$('showNoncompliantBtn'), followUpPanel:$('followUpPanel'), followUpList:$('followUpList'), followUpAttention:$('followUpAttention'), showAllPendingBtn:$('showAllPendingBtn'),
+    kpiPending:$('kpiPending'), kpiOverdue:$('kpiOverdue'), kpiUndated:$('kpiUndated'), auditProgressBar:$('auditProgressBar'), auditProgressPercent:$('auditProgressPercent'), railLevel1Count:$('railLevel1Count'), railLevel2Count:$('railLevel2Count'), railObservationCount:$('railObservationCount'), railFindingTotal:$('railFindingTotal'), railOverdueCount:$('railOverdueCount'), railTodayCount:$('railTodayCount'), railUndatedCount:$('railUndatedCount'), railPendingTotal:$('railPendingTotal'), findingSummaryPanel:$('findingSummaryPanel'), findingSummaryList:$('findingSummaryList'), findingSummaryAttention:$('findingSummaryAttention'), findingLevel1Count:$('findingLevel1Count'), findingLevel2Count:$('findingLevel2Count'), findingObservationCount:$('findingObservationCount'), showNoncompliantBtn:$('showNoncompliantBtn'), followUpPanel:$('followUpPanel'), followUpList:$('followUpList'), followUpAttention:$('followUpAttention'), showAllPendingBtn:$('showAllPendingBtn'),
     criterionSearch:$('criterionSearch'), typeFilter:$('typeFilter'), resultFilter:$('resultFilter'), followUpFilter:$('followUpFilter'), nextUnassessedBtn:$('nextUnassessedBtn'), expandAllBtn:$('expandAllBtn'), questions:$('questions'),
     auditDialog:$('auditDialog'), auditForm:$('auditForm'), auditDialogTitle:$('auditDialogTitle'), auditChecklistVersionHint:$('auditChecklistVersionHint'), auditId:$('auditId'), organizationName:$('organizationName'), auditNo:$('auditNo'),
     auditStatus:$('auditStatus'), auditStartDate:$('auditStartDate'), auditEndDate:$('auditEndDate'), leadAuditor:$('leadAuditor'), auditors:$('auditors'), auditGeneralNote:$('auditGeneralNote'), deleteAuditBtn:$('deleteAuditBtn'), saveAuditBtn:$('saveAuditBtn'), reopenAuditDialogBtn:$('reopenAuditDialogBtn'), closedAuditDialogNote:$('closedAuditDialogNote'),
@@ -53,6 +53,11 @@
       else if(mode==='error') els.saveStatusDetail.textContent='Kayıt başarısız — bağlantıyı kontrol edin';
       else if(mode==='local') els.saveStatusDetail.textContent='Değişiklikler bu cihazda yerel olarak saklanıyor';
       else els.saveStatusDetail.textContent='Son kayıt: '+new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    }
+    if(els.headerFirebaseInline){
+      const tm=new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
+      els.headerFirebaseInline.className='header-firebase-state '+mode;
+      els.headerFirebaseInline.textContent=mode==='saving'?'Firebase • kaydediliyor':mode==='error'?'Firebase ! kayıt hatası':mode==='local'?'Yerel kayıt':`Firebase ✓ ${tm}`;
     }
   }
   function currentAudit(){ return state.audits.find(a=>a.id===state.activeAuditId); }
@@ -169,6 +174,7 @@
         if(!state.offlineMode && els.storageBadge){
           els.storageBadge.textContent=state.firebaseConnected?'● Firebase bağlı':'○ Firebase bağlantısı yok';
           els.storageBadge.className='badge cloud '+(state.firebaseConnected?'connected':'disconnected');
+          if(els.headerFirebaseInline && !state.firebaseConnected){ els.headerFirebaseInline.className='header-firebase-state disconnected'; els.headerFirebaseInline.textContent='Firebase • bağlantı yok'; }
         }
       });
       await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
@@ -353,10 +359,12 @@
     const list=state.audits.filter(a=>!q || [a.organizationName,a.auditNo,a.leadAuditor].join(' ').toLocaleLowerCase('tr-TR').includes(q));
     els.auditList.innerHTML=list.map(a=>{
       const counts=auditFollowUpCounts(a);
+      const items=auditCriteria(a);
+      const assessed=items.filter(i=>isAssessmentComplete(getResponse(a,i.htmlKey))).length;
+      const closed=isAuditClosed(a);
       return `<div class="audit-item ${a.id===state.activeAuditId?'active':''}" data-id="${a.id}">
-        <div class="audit-item-title"><strong>${esc(a.organizationName||'İsimsiz denetim')}</strong>${counts.pending?`<span class="mini-alert ${counts.overdue?'danger':''}">${counts.pending} takip</span>`:''}</div>
-        <small>${esc(a.auditNo||'Denetim no yok')} • ${esc(a.status||'Taslak')}</small>
-        <small>${esc(a.startDate||'Tarih yok')} ${a.leadAuditor?'• '+esc(a.leadAuditor):''}</small>
+        <div class="audit-item-title"><strong>${esc(a.organizationName||'İsimsiz denetim')}</strong>${counts.overdue?`<span class="mini-alert danger">${counts.overdue} gecikmiş</span>`:counts.pending?`<span class="mini-alert">${counts.pending} takip</span>`:''}</div>
+        <small>${esc(a.auditNo||'Denetim no yok')} · ${assessed}/${items.length}${closed?' · 🔒':''}</small>
       </div>`;
     }).join('') || '<div class="no-results">Denetim bulunamadı.</div>';
     els.auditList.querySelectorAll('.audit-item').forEach(x=>x.onclick=()=>{state.activeAuditId=x.dataset.id; state.expandedAads.clear(); state.workspaceView='checklist'; saveLocal(); renderAll();});
@@ -395,8 +403,9 @@
   function renderWorkspace(){
     const a=currentAudit(); els.emptyState.classList.toggle('hidden',!!a); els.workspace.classList.toggle('hidden',!a); if(!a){activateAuditCriteria(null);return;}
     activateAuditCriteria(a);
-    els.auditNoLabel.textContent=a.auditNo||'DENETİM'; els.auditTitle.textContent=a.organizationName||'-';
-    els.auditMeta.textContent=[a.startDate&&('Başlangıç: '+formatDate(a.startDate)),a.endDate&&('Bitiş: '+formatDate(a.endDate)),a.leadAuditor&&('Baş denetçi: '+a.leadAuditor),a.status].filter(Boolean).join(' • ');
+    els.auditNoLabel.textContent=a.auditNo||'DENETİM'; els.auditTitle.textContent=[a.organizationName||'-',a.auditNo].filter(Boolean).join(' · ');
+    els.auditMeta.textContent=[a.startDate&&formatDate(a.startDate),a.endDate&&('→ '+formatDate(a.endDate)),a.leadAuditor&&('Baş denetçi: '+a.leadAuditor)].filter(Boolean).join('  •  ');
+    if(els.auditStatusChip){ els.auditStatusChip.textContent=a.status||'Taslak'; els.auditStatusChip.className='audit-status-chip status-'+String(a.status||'Taslak').toLocaleLowerCase('tr-TR').replace(/[^a-z0-9çğıöşü]+/g,'-'); }
     if(els.summaryAuditStatus) els.summaryAuditStatus.textContent=a.status||'Taslak';
     if(els.summaryFormVersion) els.summaryFormVersion.textContent=`${a.templateId||T.templateId||'FR.13'} • ${a.checklistVersionName||a.formVersion||T.formatVersion||'—'}`;
     if(els.summaryAuditors) els.summaryAuditors.textContent=[a.leadAuditor,a.auditors].filter(Boolean).join(' • ')||'Denetim ekibi girilmedi.';
@@ -430,6 +439,7 @@
   }
   function renderQuestions(){
     const a=currentAudit(); if(!a)return;
+    document.querySelectorAll('[data-type-segment]').forEach(x=>x.classList.toggle('active',x.dataset.typeSegment===els.typeFilter.value));
     const groups=new Map(); criteria.forEach(c=>{const k=c.questionCode;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(c);});
     let html='';
     for(const [code,items] of groups){
@@ -439,7 +449,7 @@
       const findingCount=items.filter(i=>getResponse(a,i.htmlKey).result==='Uygun Değil').length;
       const followCount=items.filter(i=>isOpenFollowUpTiming(followUpTiming(getResponse(a,i.htmlKey)))).length;
       const questionPct=Math.round((assessedCount/items.length)*100);
-      html+=`<section class="question-block" data-code="${esc(code)}"><div class="question-head"><div class="question-code">${esc(first.shortCode)}</div><div class="question-main"><div class="question-text">${esc(first.question)}</div><div class="question-ref">${esc(first.reference)}</div><div class="question-progress-track"><span style="width:${questionPct}%"></span></div></div><div class="question-stats"><strong>${assessedCount}/${items.length}</strong><span>değerlendirildi</span>${findingCount?`<span class="qstat danger">${findingCount} uygun değil</span>`:''}${followCount?`<span class="qstat warn">${followCount} takip</span>`:''}${shown.length!==items.length?`<span class="qstat muted">${shown.length} gösteriliyor</span>`:''}<span class="question-chevron">${open?'⌃':'⌄'}</span></div></div><div class="question-body ${open?'':'hidden'}">${shown.map(i=>renderAad(i,getResponse(a,i.htmlKey))).join('')}</div></section>`;
+      html+=`<section class="question-block" data-code="${esc(code)}"><div class="question-head"><div class="question-code"><span class="question-list-icon">≡</span></div><div class="question-main"><div class="question-text"><strong>${esc(first.shortCode)}</strong> — ${esc(first.question)}</div><div class="question-ref">${esc(first.reference)}</div></div><div class="question-stats"><strong>${assessedCount}/${items.length}</strong><span>değerlendirildi</span>${findingCount?`<span class="qstat danger">${findingCount} uygun değil</span>`:''}${followCount?`<span class="qstat warn">${followCount} takip</span>`:''}<span class="question-chevron">${open?'⌃':'⌄'}</span></div><div class="question-progress-track"><span style="width:${questionPct}%"></span></div></div><div class="question-body ${open?'':'hidden'}">${shown.map(i=>renderAad(i,getResponse(a,i.htmlKey))).join('')}</div></section>`;
     }
     els.questions.innerHTML=html || '<div class="panel no-results">Filtreye uyan kriter bulunamadı.</div>';
     els.questions.querySelectorAll('.question-head').forEach(h=>h.onclick=()=>{
@@ -468,74 +478,78 @@
     const saveLabel=r.updatedAt?'✓ Kayıtlı':'— Veri yok';
     return `<article class="aad-card aad-accordion ${resultClass} ${taskClass==='overdue'?'has-overdue':hasTask?'has-followup':''} ${expanded?'expanded':''}" data-key="${esc(i.htmlKey)}">
       <button type="button" class="aad-accordion-head" aria-expanded="${expanded?'true':'false'}" aria-controls="aad-body-${esc(i.htmlKey)}">
-        <div class="aad-accordion-main">
-          <div class="aad-title"><strong>${esc(i.shortCode)} / ${esc(i.aadCode)}</strong><span class="chip ${i.auditType==='Uzaktan'?'remote':'onsite'}">${esc(i.auditType)}</span></div>
-          <div class="aad-summary-criterion">${esc(i.atomicCriterion)}</div>
-          <div class="aad-summary-flags">${hasEvidence?'<span>📎 Kanıt ref.</span>':''}${hasNote?'<span>📝 Denetçi notu</span>':''}${!hasEvidence&&!hasNote?'<span class="muted">Henüz çalışma notu yok</span>':''}</div>
-        </div>
-        <div class="aad-accordion-status">
-          ${hasTask?`<span class="followup-badge ${taskClass}">${esc(taskLabel)}</span>`:''}
-          <span class="aad-result-pill ${resultClass}"><b>${resultIconValue}</b>${esc(resultLabel)}</span>${isNoncompliant(r)&&r.findingLevel?`<span class="finding-level-badge level-${esc(r.findingLevel.replace(/\s+/g,'-'))}">${esc(r.findingLevel)}</span>`:''}
-          <span class="aad-save-summary ${r.updatedAt?'saved':'empty'}">${saveLabel}</span>
-          <span class="aad-chevron" aria-hidden="true">${expanded?'⌃':'⌄'}</span>
-        </div>
+        <span class="aad-row-grip" aria-hidden="true">⋮⋮</span>
+        <div class="aad-row-id"><strong>${esc(i.aadCode)}</strong><span class="chip ${i.auditType==='Uzaktan'?'remote':'onsite'}">${esc(i.auditType).toUpperCase()}</span></div>
+        <div class="aad-row-result"><span class="aad-result-pill ${resultClass}"><b>${resultIconValue}</b>${esc(resultLabel)}</span>${isNoncompliant(r)&&r.findingLevel?`<span class="finding-level-inline">· ${esc(r.findingLevel.replace('Seviye ', 'S'))}</span>`:''}${hasTask?`<span class="followup-badge ${taskClass}">${taskClass==='overdue'?'Gecikmiş':taskClass==='today'?'Bugün':'Beklenen Husus Var'}</span>`:''}</div>
+        <div class="aad-row-flags">${hasNote?'<span title="Denetçi notu var">▤</span>':''}${hasEvidence?'<span title="Kanıt referansı var">⌕</span>':''}</div>
+        <div class="aad-summary-criterion">${esc(i.atomicCriterion)}</div>
+        <span class="aad-save-summary ${r.updatedAt?'saved':'empty'}">${saveLabel}</span>
+        <span class="aad-chevron" aria-hidden="true">${expanded?'⌃':'⌄'}</span>
       </button>
       <div id="aad-body-${esc(i.htmlKey)}" class="aad-accordion-body ${expanded?'':'hidden'}">
-        <div class="aad-detail-context"><span class="aad-detail-label">Atomik kriter</span><div class="criterion">${esc(i.atomicCriterion)}</div></div>
-        <details><summary>Denetçi açıklaması / kabul edilebilir kanıtlar</summary><div class="guidance">${esc(i.auditorGuidance||'')}</div></details>
-        <div class="aad-grid">
-          <label>İşletme kanıt referansları<textarea class="input response-input" data-field="evidenceRefs" placeholder="Örn. OM-A 11.3.2; SMSM 6.4; QDMS DOC-123">${esc(r.evidenceRefs||'')}</textarea></label>
-          <label>Denetçi notu<textarea class="input response-input" data-field="auditorNote" placeholder="Denetimde yapılan tespit / doğrulama notu">${esc(r.auditorNote||'')}</textarea></label>
-          <label>Değerlendirme sonucu
-            <input type="hidden" class="response-input result-select" data-field="result" data-value="${esc(result)}" value="${esc(result)}" />
-            <div class="result-buttons" role="group" aria-label="Değerlendirme sonucu">
-              <button type="button" class="result-btn good ${result==='Uygun'?'active':''}" data-result="Uygun">Uygun</button>
-              <button type="button" class="result-btn danger ${result==='Uygun Değil'?'active':''}" data-result="Uygun Değil">Uygun Değil</button>
-              <button type="button" class="result-btn neutral ${result==='N/A'?'active':''}" data-result="N/A">N/A</button>
-              <button type="button" class="result-btn notasked ${result==='Sorulmadı'?'active':''}" data-result="Sorulmadı">Sorulmadı</button>
-              <button type="button" class="result-clear ${!result?'active':''}" data-result="" title="Değerlendirmeyi temizle">×</button>
+        <div class="aad-workbench">
+          <section class="control-info-panel">
+            <div class="workbench-title"><span class="workbench-icon info">i</span><strong>Kontrol Bilgisi</strong></div>
+            <div class="control-info-block"><span>Mevzuat / Referans</span><p>${esc(i.reference||'—')}</p></div>
+            <div class="control-info-block"><span>Atomik Kriter</span><p>${esc(i.atomicCriterion||'—')}</p></div>
+            <div class="control-info-block guidance-block"><span>Denetçi Açıklaması / Kabul Edilebilir Kanıtlar</span><p>${esc(i.auditorGuidance||'—')}</p></div>
+          </section>
+          <section class="auditor-record-panel">
+            <div class="workbench-title"><span class="workbench-icon edit">✎</span><strong>Denetçi Kaydı</strong></div>
+            <div class="record-fields">
+              <label>İşletme Kanıt Referansları<textarea class="input response-input evidence-field" data-field="evidenceRefs" placeholder="Örn. OM-A 11.3.2; SMSM 6.4; QDMS DOC-123">${esc(r.evidenceRefs||'')}</textarea></label>
+              <label>Denetçi Notu<textarea class="input response-input note-field" data-field="auditorNote" placeholder="Denetimde yapılan tespit / doğrulama notu">${esc(r.auditorNote||'')}</textarea></label>
+              <label class="result-field-label">Sonuç
+                <input type="hidden" class="response-input result-select" data-field="result" data-value="${esc(result)}" value="${esc(result)}" />
+                <div class="result-buttons" role="group" aria-label="Değerlendirme sonucu">
+                  <button type="button" class="result-btn good ${result==='Uygun'?'active':''}" data-result="Uygun">✓ Uygun</button>
+                  <button type="button" class="result-btn danger ${result==='Uygun Değil'?'active':''}" data-result="Uygun Değil">! Uygun Değil</button>
+                  <button type="button" class="result-btn neutral ${result==='N/A'?'active':''}" data-result="N/A">N/A</button>
+                  <button type="button" class="result-btn notasked ${result==='Sorulmadı'?'active':''}" data-result="Sorulmadı">○ Sorulmadı</button>
+                  <button type="button" class="result-clear ${!result?'active':''}" data-result="" title="Değerlendirmeyi temizle">×</button>
+                </div>
+              </label>
             </div>
-          </label>
-        </div>
-        <div class="finding-detail-box ${isNoncompliant(r)?'active':'hidden'} ${isNoncompliant(r)&&!isFindingComplete(r)?'incomplete':''}">
-          <div class="finding-detail-title"><div><span>Uygun Değil / Bulgu Bilgileri</span><small>Uygun Değil değerlendirmesinin tamamlanması için seviye, ön tanımlı bulgu ve bulgu açıklaması zorunludur.</small></div><span class="required-badge">ZORUNLU</span></div>
-          <div class="finding-level-field">
-            <label>Bulgu seviyesi *</label>
-            <input type="hidden" class="response-input finding-level-input" data-field="findingLevel" value="${esc(r.findingLevel||'')}" />
-            <div class="finding-level-buttons" role="group" aria-label="Bulgu seviyesi">
-              <button type="button" class="finding-level-btn level1 ${r.findingLevel==='Seviye 1'?'active':''}" data-level="Seviye 1">Seviye 1</button>
-              <button type="button" class="finding-level-btn level2 ${r.findingLevel==='Seviye 2'?'active':''}" data-level="Seviye 2">Seviye 2</button>
-              <button type="button" class="finding-level-btn observation ${r.findingLevel==='Gözlem'?'active':''}" data-level="Gözlem">Gözlem</button>
+            <div class="finding-detail-box ${isNoncompliant(r)?'active':'hidden'} ${isNoncompliant(r)&&!isFindingComplete(r)?'incomplete':''}">
+              <div class="finding-detail-title"><div><span>Uygun Değil / Bulgu Bilgileri</span><small>Seviye ve bulgu metinleri zorunludur.</small></div><span class="required-badge">ZORUNLU</span></div>
+              <div class="finding-level-field">
+                <label>Bulgu seviyesi *</label>
+                <input type="hidden" class="response-input finding-level-input" data-field="findingLevel" value="${esc(r.findingLevel||'')}" />
+                <div class="finding-level-buttons" role="group" aria-label="Bulgu seviyesi">
+                  <button type="button" class="finding-level-btn level1 ${r.findingLevel==='Seviye 1'?'active':''}" data-level="Seviye 1">Seviye 1</button>
+                  <button type="button" class="finding-level-btn level2 ${r.findingLevel==='Seviye 2'?'active':''}" data-level="Seviye 2">Seviye 2</button>
+                  <button type="button" class="finding-level-btn observation ${r.findingLevel==='Gözlem'?'active':''}" data-level="Gözlem">Gözlem</button>
+                </div>
+              </div>
+              <div class="finding-text-grid">
+                <label>Ön Tanımlı Bulgu *<textarea class="input response-input finding-required" data-field="predefinedFinding" required placeholder="Genel, benzersiz ve işletmeden bağımsız ön tanımlı bulgu metni">${esc(r.predefinedFinding||'')}</textarea></label>
+                <label>Bulgu Açıklaması *<textarea class="input response-input finding-required" data-field="findingDescription" required placeholder="Denetimde doğrulanan somut uygunsuzluğu açıklayın">${esc(r.findingDescription||'')}</textarea></label>
+              </div>
+              <div class="finding-validation ${isFindingComplete(r)?'complete':'incomplete'}">${isFindingComplete(r)?'✓ Zorunlu bulgu bilgileri tamamlandı.':'! Eksik: '+esc(findingMissingFields(r).join(', '))}</div>
             </div>
-          </div>
-          <div class="finding-text-grid">
-            <label>Ön Tanımlı Bulgu *<textarea class="input response-input finding-required" data-field="predefinedFinding" required placeholder="Genel, benzersiz ve işletmeden bağımsız ön tanımlı bulgu metni">${esc(r.predefinedFinding||'')}</textarea></label>
-            <label>Bulgu Açıklaması *<textarea class="input response-input finding-required" data-field="findingDescription" required placeholder="Denetimde doğrulanan somut uygunsuzluğu açıklayın">${esc(r.findingDescription||'')}</textarea></label>
-          </div>
-          <div class="finding-validation ${isFindingComplete(r)?'complete':'incomplete'}">${isFindingComplete(r)?'✓ Zorunlu bulgu bilgileri tamamlandı.':'! Eksik: '+esc(findingMissingFields(r).join(', '))}</div>
+          </section>
         </div>
         <div class="followup-box ${hasTask?'active':''}">
-          <div class="followup-box-title"><span>Takip / Beklenen Husus</span><small>Buraya yazılan husus otomatik olarak açık takip kabul edilir. Hatırlatma tarihi boş bırakılırsa ayrıca uyarılır.</small></div>
+          <div class="followup-box-title"><div><span>⌛ Beklenen Husus</span><small>Talep edilen ve daha sonra kontrol edilecek husus</small></div>${hasTask?`<span class="followup-badge ${taskClass}">${esc(taskLabel)}</span>`:''}</div>
           <div class="followup-grid">
-            <label class="followup-text-field">Talep edilen / beklenen husus<textarea class="input response-input followup-text" data-field="followUpText" placeholder="Örn. İşletmeden güncel olay kayıt listesi talep edildi.">${esc(r.followUpText||'')}</textarea></label>
+            <label class="followup-text-field">Beklenen husus<textarea class="input response-input followup-text" data-field="followUpText" placeholder="Örn. İşletmeden güncel olay kayıt listesi talep edildi.">${esc(r.followUpText||'')}</textarea></label>
             <div class="followup-date-field">
-              <label>Hatırlatma tarihi<input type="date" class="input response-input" data-field="reminderDate" value="${esc(r.reminderDate||'')}" ${hasTask?'':'disabled'} /></label>
+              <label>Hatırlatma Tarihi<input type="date" class="input response-input" data-field="reminderDate" value="${esc(r.reminderDate||'')}" ${hasTask?'':'disabled'} /></label>
               <div class="followup-date-presets">
                 <button type="button" class="followup-date-btn" data-days="0" ${hasTask?'':'disabled'}>Bugün</button>
-                <button type="button" class="followup-date-btn" data-days="1" ${hasTask?'':'disabled'}>Yarın</button>
                 <button type="button" class="followup-date-btn" data-days="3" ${hasTask?'':'disabled'}>+3 gün</button>
                 <button type="button" class="followup-date-btn" data-days="7" ${hasTask?'':'disabled'}>+7 gün</button>
                 <button type="button" class="followup-date-btn clear" data-days="clear" ${hasTask?'':'disabled'}>Temizle</button>
               </div>
             </div>
             <div class="followup-status-field">
-              <label>Takip durumu<select class="input response-input followup-status" data-field="followUpStatus" ${hasTask?'':'disabled'}><option value="Bekleniyor" ${status==='Bekleniyor'?'selected':''}>Bekleniyor</option><option value="Tamamlandı" ${status==='Tamamlandı'?'selected':''}>Tamamlandı</option><option value="İptal" ${status==='İptal'?'selected':''}>İptal</option></select></label>
+              <label>Durum<select class="input response-input followup-status" data-field="followUpStatus" ${hasTask?'':'disabled'}><option value="Bekleniyor" ${status==='Bekleniyor'?'selected':''}>Bekleniyor</option><option value="Tamamlandı" ${status==='Tamamlandı'?'selected':''}>Tamamlandı</option><option value="İptal" ${status==='İptal'?'selected':''}>İptal</option></select></label>
               ${hasTask?`<button type="button" class="followup-action-btn ${status==='Tamamlandı'?'reopen':'complete'}" data-status="${status==='Tamamlandı'?'Bekleniyor':'Tamamlandı'}">${status==='Tamamlandı'?'↻ Yeniden aç':'✓ Tamamla'}</button>`:''}
             </div>
           </div>
           <div class="followup-info ${hasTask?taskClass+'':'hidden'}">${hasTask?`${taskLabel}${r.reminderDate?` • Hatırlatma: ${formatDate(r.reminderDate)}`:' • Hatırlatma tarihi girilmedi'}${r.followUpCreatedAt?` • Açılış: ${new Date(r.followUpCreatedAt).toLocaleDateString('tr-TR')}`:''}${r.completedAt?` • Tamamlandı: ${new Date(r.completedAt).toLocaleString('tr-TR')}`:''}`:''}</div>
         </div>
-        <div class="save-state"><span class="save-dot"></span>${r.updatedAt?'Otomatik kayıt • '+new Date(r.updatedAt).toLocaleString('tr-TR'):'Otomatik kayıt açık • Henüz veri girilmedi'}</div>
+        <div class="save-state"><span class="save-dot"></span>${r.updatedAt?'Firebase’e kaydedildi • '+new Date(r.updatedAt).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'Otomatik kayıt açık • Henüz veri girilmedi'}</div>
       </div>
     </article>`;
   }
@@ -646,13 +660,11 @@
   }
 
   function refreshAadSummaryFlags(card,r){
-    const wrap=card.querySelector('.aad-summary-flags'); if(!wrap) return;
+    const wrap=card.querySelector('.aad-row-flags'); if(!wrap) return;
     const bits=[];
-    if(String(r.evidenceRefs||'').trim()) bits.push('<span>📎 Kanıt ref.</span>');
-    if(String(r.auditorNote||'').trim()) bits.push('<span>📝 Denetçi notu</span>');
-    if(isNoncompliant(r) && r.findingLevel) bits.push(`<span class="finding-flag">⚑ ${esc(r.findingLevel)}</span>`);
-    if(isNoncompliant(r) && !isFindingComplete(r)) bits.push('<span class="finding-incomplete-flag">! Bulgu bilgisi eksik</span>');
-    wrap.innerHTML=bits.length?bits.join(''):'<span class="muted">Henüz çalışma notu yok</span>';
+    if(String(r.auditorNote||'').trim()) bits.push('<span title="Denetçi notu var">▤</span>');
+    if(String(r.evidenceRefs||'').trim()) bits.push('<span title="Kanıt referansı var">⌕</span>');
+    wrap.innerHTML=bits.join('');
   }
 
   function refreshQuestionStats(block){
@@ -681,11 +693,11 @@
     }
     box.querySelectorAll('.finding-level-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.level===(r.findingLevel||'')));
     card.classList.toggle('finding-incomplete',active && !isFindingComplete(r));
-    const statusWrap=card.querySelector('.aad-accordion-status');
-    const old=statusWrap?.querySelector('.finding-level-badge'); if(old) old.remove();
+    const statusWrap=card.querySelector('.aad-row-result');
+    const old=statusWrap?.querySelector('.finding-level-inline'); if(old) old.remove();
     if(active && r.findingLevel && statusWrap){
-      const badge=document.createElement('span'); badge.className='finding-level-badge level-'+r.findingLevel.replace(/\s+/g,'-'); badge.textContent=r.findingLevel;
-      const resultPill=statusWrap.querySelector('.aad-result-pill'); statusWrap.insertBefore(badge,resultPill||statusWrap.firstChild);
+      const badge=document.createElement('span'); badge.className='finding-level-inline'; badge.textContent='· '+r.findingLevel.replace('Seviye ','S');
+      const resultPill=statusWrap.querySelector('.aad-result-pill'); if(resultPill) resultPill.after(badge); else statusWrap.prepend(badge);
     }
   }
 
@@ -699,10 +711,12 @@
     else { dateInput.value=''; statusSelect.value='Bekleniyor'; }
     card.classList.toggle('has-followup',active && timing!=='overdue');
     card.classList.toggle('has-overdue',timing==='overdue');
-    const statusWrap=card.querySelector('.aad-accordion-status'); const oldBadge=statusWrap?.querySelector('.followup-badge'); if(oldBadge)oldBadge.remove();
+    const statusWrap=card.querySelector('.aad-row-result'); const oldBadge=statusWrap?.querySelector('.followup-badge'); if(oldBadge)oldBadge.remove();
     if(active && statusWrap){
-      const badge=document.createElement('span'); badge.className=`followup-badge ${timing}`; badge.textContent=label; statusWrap.insertBefore(badge,statusWrap.firstChild);
+      const badge=document.createElement('span'); badge.className=`followup-badge ${timing}`; badge.textContent=timing==='overdue'?'Gecikmiş':timing==='today'?'Bugün':'Beklenen Husus Var'; statusWrap.appendChild(badge);
     }
+    const titleWrap=card.querySelector('.followup-box-title');
+    if(titleWrap){ const oldTitleBadge=titleWrap.querySelector('.followup-badge'); if(oldTitleBadge) oldTitleBadge.remove(); if(active){ const titleBadge=document.createElement('span'); titleBadge.className=`followup-badge ${timing}`; titleBadge.textContent=label; titleWrap.appendChild(titleBadge); } }
     const info=card.querySelector('.followup-info');
     info.className=`followup-info ${active?timing:'hidden'}`;
     info.textContent=active ? `${label}${r.reminderDate?' • Hatırlatma: '+formatDate(r.reminderDate):' • Hatırlatma tarihi girilmedi'}${r.followUpCreatedAt?' • Açılış: '+new Date(r.followUpCreatedAt).toLocaleDateString('tr-TR'):''}${r.completedAt?' • Tamamlandı: '+new Date(r.completedAt).toLocaleString('tr-TR'):''}` : '';
@@ -714,7 +728,7 @@
   }
 
   function updateKpis(){
-    const a=currentAudit(); let assessed=0, compliant=0, noncompliant=0, na=0, notAsked=0, remote=0, onsite=0, pending=0, overdue=0, undated=0;
+    const a=currentAudit(); let assessed=0, compliant=0, noncompliant=0, na=0, notAsked=0, remote=0, onsite=0, pending=0, overdue=0, undated=0, today=0;
     criteria.forEach(i=>{
       const r=getResponse(a,i.htmlKey);
       if(isAssessmentComplete(r)){assessed++; if(i.auditType==='Uzaktan')remote++; else onsite++;}
@@ -725,6 +739,7 @@
       const timing=followUpTiming(r);
       if(isOpenFollowUpTiming(timing))pending++;
       if(timing==='overdue')overdue++;
+      if(timing==='today')today++;
       if(timing==='undated')undated++;
     });
     els.kpiProgress.textContent=`${assessed}/${criteria.length}`;
@@ -734,6 +749,8 @@
     const pct=Math.round((assessed/criteria.length)*100);
     if(els.auditProgressBar) els.auditProgressBar.style.width=pct+'%';
     if(els.auditProgressPercent) els.auditProgressPercent.textContent='%'+pct;
+    if(els.headerProgressInline) els.headerProgressInline.textContent=`${assessed}/${criteria.length} değerlendirildi`;
+    if(els.headerProgressBar) els.headerProgressBar.style.width=pct+'%';
     els.kpiNoncompliant.closest('.overview-metric')?.classList.toggle('has-value',noncompliant>0);
     els.kpiOverdue.closest('.overview-metric')?.classList.toggle('has-value',overdue>0);
     els.kpiPending.closest('.overview-metric')?.classList.toggle('has-value',pending>0);
@@ -743,6 +760,14 @@
     if(els.navChecklistCount) els.navChecklistCount.textContent=`${assessed}/${criteria.length}`;
     if(els.navFindingCount){ els.navFindingCount.textContent=noncompliant; els.navFindingCount.classList.toggle('danger',level1>0||incompleteFinding>0); }
     if(els.navPendingCount){ els.navPendingCount.textContent=pending; els.navPendingCount.classList.toggle('danger',overdue>0); els.navPendingCount.classList.toggle('warn',!overdue&&undated>0); }
+    if(els.railLevel1Count) els.railLevel1Count.textContent=level1;
+    if(els.railLevel2Count) els.railLevel2Count.textContent=level2;
+    if(els.railObservationCount) els.railObservationCount.textContent=observation;
+    if(els.railFindingTotal) els.railFindingTotal.textContent=level1+level2+observation+incompleteFinding;
+    if(els.railOverdueCount) els.railOverdueCount.textContent=overdue;
+    if(els.railTodayCount) els.railTodayCount.textContent=today;
+    if(els.railUndatedCount) els.railUndatedCount.textContent=undated;
+    if(els.railPendingTotal) els.railPendingTotal.textContent=pending;
     if(els.workspaceQuickProgress) els.workspaceQuickProgress.textContent=`${assessed}/${criteria.length} değerlendirildi`;
     if(els.workspaceQuickAlert){
       const bits=[]; if(level1) bits.push(`${level1} S1`); if(incompleteFinding) bits.push(`${incompleteFinding} eksik tespit`); if(overdue) bits.push(`${overdue} gecikmiş`);
@@ -1283,6 +1308,13 @@
   if(els.checklistClearDraftBtn) els.checklistClearDraftBtn.onclick=()=>{state.checklistDraft=null;els.checklistExcelInput.value='';renderChecklistManager();};
   document.querySelectorAll('.cancel-dialog').forEach(b=>b.onclick=()=>els.auditDialog.close());
   els.auditSearch.addEventListener('input',renderAuditList);
+  document.querySelectorAll('[data-type-segment]').forEach(btn=>btn.addEventListener('click',()=>{
+    els.typeFilter.value=btn.dataset.typeSegment;
+    document.querySelectorAll('[data-type-segment]').forEach(x=>x.classList.toggle('active',x===btn));
+    renderQuestions();
+  }));
+  els.typeFilter.addEventListener('change',()=>document.querySelectorAll('[data-type-segment]').forEach(x=>x.classList.toggle('active',x.dataset.typeSegment===els.typeFilter.value)));
+  document.querySelectorAll('[data-rail-view]').forEach(btn=>btn.addEventListener('click',()=>setWorkspaceView(btn.dataset.railView,{restore:false})));
   [els.criterionSearch,els.typeFilter,els.resultFilter,els.followUpFilter].forEach(x=>x.addEventListener('input',renderQuestions));
   els.expandAllBtn.onclick=()=>{const codes=[...new Set(criteria.map(x=>x.questionCode))]; const allOpen=codes.every(c=>state.expanded.has(c)); state.expanded=new Set(allOpen?[]:codes); renderQuestions();};
   if(els.showNoncompliantBtn) els.showNoncompliantBtn.onclick=()=>{els.criterionSearch.value='';els.typeFilter.value='all';els.resultFilter.value='Uygun Değil';els.followUpFilter.value='all';setWorkspaceView('checklist',{restore:false});renderQuestions();els.questions.scrollIntoView({behavior:'smooth',block:'start'});};

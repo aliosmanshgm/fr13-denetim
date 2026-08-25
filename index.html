@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>FR.13 Emniyet Olayları Denetimi</title>
+  <title>FR.13 Denetim • v17</title>
   <link rel="stylesheet" href="styles.css" />
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
@@ -27,35 +27,30 @@
     </div>
   </div>
 
-  <header id="appHeader" class="app-header hidden">
-    <div class="brand-lockup">
-      <div class="eyebrow">SHGM • EYUİK</div>
-      <h1>FR.13 Emniyet Olayları Denetimi</h1>
-      <p>Denetim bazlı AAD değerlendirme, not ve beklenen husus takip ekranı</p>
-    </div>
-    <div class="header-actions human-status-area">
-      <div class="autosave-indicator" aria-live="polite">
-        <span id="saveStatusBadge" class="badge save-status saved" title="Kayıt durumu">✓ Kaydedildi</span>
-        <div class="autosave-copy"><strong>Otomatik kayıt açık</strong><small id="saveStatusDetail">Değişiklikler Firebase'e kaydedilir</small></div>
-      </div>
-      <span id="storageBadge" class="badge">Bağlantı bekleniyor</span>
-      <span id="currentUserLabel" class="user-label"></span>
-      <button id="signOutBtn" class="btn secondary">Çıkış</button>
-    </div>
-  </header>
+  <header id="appHeader" class="app-header hidden" aria-hidden="true"></header>
 
   <main id="appShell" class="shell hidden">
     <aside class="sidebar">
-      <section class="panel">
-        <div class="panel-title-row">
-          <h2>Denetimler</h2>
-          <button id="newAuditBtn" class="btn small">+ Yeni</button>
+      <section class="panel sidebar-shell">
+        <div class="sidebar-brand">
+          <div class="brand-mark" aria-hidden="true">✈</div>
+          <div><strong>FR.13 Denetim</strong><small>Emniyet Olayları</small></div>
         </div>
-        <input id="auditSearch" class="input" placeholder="Denetim / işletme ara" />
+        <button id="newAuditBtn" class="btn sidebar-new-audit"><span aria-hidden="true">＋</span> Yeni Denetim</button>
+        <div class="sidebar-section-title">Denetimler</div>
+        <input id="auditSearch" class="input sidebar-search" placeholder="Denetim ara" aria-label="Denetim ara" />
         <div id="auditList" class="audit-list"></div>
-        <div class="sidebar-admin-zone">
-          <button type="button" id="checklistManagerBtn" class="btn secondary checklist-admin-btn">⚙ Kontrol Listesi Yönetimi</button>
-          <small>Yeni sürüm, Excel güncelleme ve sürüm geçmişi</small>
+        <div class="sidebar-footer">
+          <button type="button" id="checklistManagerBtn" class="sidebar-text-action">⚙ <span>Kontrol Listesi Yönetimi</span></button>
+          <div class="sidebar-system-status">
+            <span id="storageBadge" class="badge">Bağlantı bekleniyor</span>
+            <span id="currentUserLabel" class="user-label"></span>
+          </div>
+          <button id="signOutBtn" class="sidebar-text-action muted-action">↪ <span>Çıkış</span></button>
+          <div class="autosave-indicator sidebar-autosave" aria-live="polite">
+            <span id="saveStatusBadge" class="badge save-status saved" title="Kayıt durumu">✓ Kaydedildi</span>
+            <small id="saveStatusDetail">Değişiklikler Firebase'e kaydedilir</small>
+          </div>
         </div>
       </section>
     </aside>
@@ -67,22 +62,32 @@
       </div>
 
       <div id="auditWorkspace" class="hidden">
-        <section class="panel audit-summary">
+        <section class="panel audit-summary v17-audit-header">
           <div class="summary-head">
-            <div>
-              <div class="eyebrow" id="auditNoLabel">DENETİM</div>
-              <h2 id="auditTitle">-</h2>
+            <div class="audit-heading-main">
+              <div class="audit-heading-line">
+                <h2 id="auditTitle">-</h2>
+                <span id="auditStatusChip" class="audit-status-chip">Taslak</span>
+              </div>
+              <div id="auditNoLabel" class="sr-only">DENETİM</div>
               <p id="auditMeta">-</p>
             </div>
-            <div class="summary-actions">
-              <button id="editAuditBtn" class="btn secondary">Denetim bilgileri</button>
-              <div class="export-menu-wrap">
-                <button id="exportMenuBtn" type="button" class="btn secondary export-menu-trigger" aria-expanded="false" aria-controls="exportMenu">Dışa Aktar <span aria-hidden="true">▾</span></button>
-                <div id="exportMenu" class="export-menu-panel hidden" role="menu">
-                  <button id="excelExportBtn" type="button" class="export-menu-item" role="menuitem">📊 Excel</button>
-                  <button id="pdfExportBtn" type="button" class="export-menu-item" role="menuitem">📄 PDF</button>
-                  <button id="exportBtn" type="button" class="export-menu-item" role="menuitem">{ } JSON</button>
-                  <button id="printBtn" type="button" class="export-menu-item" role="menuitem">🖨️ Yazdır</button>
+            <div class="audit-header-right">
+              <div class="header-inline-progress">
+                <strong id="headerProgressInline">0/58 değerlendirildi</strong>
+                <span class="header-progress-track"><i id="headerProgressBar" style="width:0%"></i></span>
+              </div>
+              <span id="headerFirebaseInline" class="header-firebase-state">Firebase • bekleniyor</span>
+              <div class="summary-actions">
+                <button id="editAuditBtn" class="btn secondary">Denetim Bilgileri</button>
+                <div class="export-menu-wrap">
+                  <button id="exportMenuBtn" type="button" class="btn secondary export-menu-trigger" aria-expanded="false" aria-controls="exportMenu">Dışa Aktar <span aria-hidden="true">⌄</span></button>
+                  <div id="exportMenu" class="export-menu-panel hidden" role="menu">
+                    <button id="excelExportBtn" type="button" class="export-menu-item" role="menuitem">📊 Excel</button>
+                    <button id="pdfExportBtn" type="button" class="export-menu-item" role="menuitem">📄 PDF</button>
+                    <button id="exportBtn" type="button" class="export-menu-item" role="menuitem">{ } JSON</button>
+                    <button id="printBtn" type="button" class="export-menu-item" role="menuitem">🖨️ Yazdır</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -119,44 +124,68 @@
         </nav>
 
         <section id="workspaceViewChecklist" class="workspace-view" data-workspace-panel="checklist">
-<section class="panel toolbar human-toolbar">
-          <div class="toolbar-search-group">
-            <label for="criterionSearch">Kontrol formunda ara</label>
-            <input id="criterionSearch" class="input grow" placeholder="Soru, AAD, kriter, mevzuat, not veya takip hususu ara" />
-          </div>
-          <div class="toolbar-filter-group">
-            <label>Görünüm filtreleri</label>
-            <div class="toolbar-filter-row">
-              <select id="typeFilter" class="input compact">
-                <option value="all">Tüm denetim türleri</option>
-                <option value="Uzaktan">Uzaktan</option>
-                <option value="Yerinde">Yerinde</option>
-              </select>
-              <select id="resultFilter" class="input compact">
-                <option value="all">Tüm sonuçlar</option>
-                <option value="unassessed">Değerlendirilmedi / eksik</option>
-                <option value="Uygun">Uygun</option>
-                <option value="Uygun Değil">Uygun Değil</option>
-                <option value="incomplete-finding">Eksik bulgu bilgisi</option>
-                <option value="N/A">N/A</option>
-                <option value="Sorulmadı">Sorulmadı</option>
-              </select>
-              <select id="followUpFilter" class="input compact">
-                <option value="all">Tüm takip durumları</option>
-                <option value="pending">Takip bekleyenler</option>
-                <option value="overdue">Gecikmiş</option>
-                <option value="today">Bugün kontrol et</option>
-                <option value="undated">Tarihi belirlenmemiş</option>
-                <option value="completed">Tamamlanan takipler</option>
-              </select>
+          <div class="checklist-layout">
+            <div class="checklist-main-column">
+              <section class="panel toolbar human-toolbar v17-toolbar">
+                <div class="toolbar-main-row">
+                  <div class="toolbar-search-group">
+                    <label class="sr-only" for="criterionSearch">Kontrol formunda ara</label>
+                    <input id="criterionSearch" class="input grow" placeholder="AAD, soru, mevzuat veya not ara" />
+                  </div>
+                  <div class="type-segments" role="group" aria-label="Denetim türü filtresi">
+                    <button type="button" class="type-segment active" data-type-segment="all">Tümü</button>
+                    <button type="button" class="type-segment" data-type-segment="Uzaktan">Uzaktan</button>
+                    <button type="button" class="type-segment" data-type-segment="Yerinde">Yerinde</button>
+                  </div>
+                  <button id="nextUnassessedBtn" class="btn primary-workflow">Sonraki değerlendirilmemiş <span aria-hidden="true">→</span></button>
+                </div>
+                <div class="toolbar-advanced-row">
+                  <select id="typeFilter" class="input compact sr-control" aria-label="Denetim türü">
+                    <option value="all">Tüm denetim türleri</option>
+                    <option value="Uzaktan">Uzaktan</option>
+                    <option value="Yerinde">Yerinde</option>
+                  </select>
+                  <select id="resultFilter" class="input compact">
+                    <option value="all">Tüm sonuçlar</option>
+                    <option value="unassessed">Değerlendirilmedi / eksik</option>
+                    <option value="Uygun">Uygun</option>
+                    <option value="Uygun Değil">Uygun Değil</option>
+                    <option value="incomplete-finding">Eksik bulgu bilgisi</option>
+                    <option value="N/A">N/A</option>
+                    <option value="Sorulmadı">Sorulmadı</option>
+                  </select>
+                  <select id="followUpFilter" class="input compact">
+                    <option value="all">Tüm takip durumları</option>
+                    <option value="pending">Takip bekleyenler</option>
+                    <option value="overdue">Gecikmiş</option>
+                    <option value="today">Bugün kontrol et</option>
+                    <option value="undated">Tarihi belirlenmemiş</option>
+                    <option value="completed">Tamamlanan takipler</option>
+                  </select>
+                  <button id="expandAllBtn" class="btn secondary compact-action">Soruları aç / kapat</button>
+                </div>
+              </section>
+              <div id="questions"></div>
             </div>
+            <aside class="checklist-context-rail" aria-label="Denetim hızlı özeti">
+              <section class="rail-card finding-rail-card">
+                <div class="rail-title"><span class="rail-icon danger">!</span><strong>Tespit Özeti</strong></div>
+                <div class="rail-stat"><span>Seviye 1</span><b id="railLevel1Count">0</b></div>
+                <div class="rail-stat"><span>Seviye 2</span><b id="railLevel2Count">0</b></div>
+                <div class="rail-stat"><span>Gözlem</span><b id="railObservationCount">0</b></div>
+                <div class="rail-total"><span>Toplam</span><strong id="railFindingTotal">0</strong></div>
+                <button type="button" class="rail-link" data-rail-view="findings">Tespitlere git →</button>
+              </section>
+              <section class="rail-card pending-rail-card">
+                <div class="rail-title"><span class="rail-icon warn">◷</span><strong>Bekleyen İşler</strong></div>
+                <div class="rail-stat"><span>Gecikmiş</span><b id="railOverdueCount">0</b></div>
+                <div class="rail-stat"><span>Bugün</span><b id="railTodayCount">0</b></div>
+                <div class="rail-stat"><span>Tarihsiz</span><b id="railUndatedCount">0</b></div>
+                <div class="rail-total"><span>Toplam</span><strong id="railPendingTotal">0</strong></div>
+                <button type="button" class="rail-link" data-rail-view="pending">Bekleyen işlere git →</button>
+              </section>
+            </aside>
           </div>
-          <div class="toolbar-action-group">
-            <button id="nextUnassessedBtn" class="btn primary-workflow">Sonraki değerlendirilmemiş →</button>
-            <button id="expandAllBtn" class="btn secondary">Soruları aç / kapat</button>
-          </div>
-        </section>
-          <div id="questions"></div>
         </section>
 
         <section id="workspaceViewFindings" class="workspace-view hidden" data-workspace-panel="findings">
