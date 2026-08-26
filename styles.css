@@ -407,3 +407,124 @@ body{background:var(--v17-bg);color:var(--v17-ink);font-family:Inter,"Segoe UI",
   .sidebar,.checklist-context-rail,.v17-toolbar,.workspace-nav,.v17-audit-header .summary-actions,.header-firebase-state,.header-inline-progress{display:none!important}
   .shell{display:block}.content{padding:0}.v17-audit-header{position:static;margin:0;padding:0 0 10px;border-bottom:1px solid #bbb}.aad-workbench{grid-template-columns:1fr 1fr}.control-info-panel{border-right:1px solid #ddd;border-bottom:0}
 }
+
+/* =====================================================================
+   v17.1 - TYPOGRAPHY / READABILITY PASS
+   Amaç: v17 görsel yoğunluğunu korurken uzun süreli denetim kullanımında
+   metin okunabilirliğini ve görsel ergonomiyi artırmak.
+   ===================================================================== */
+body{font-size:14px}
+
+/* Sidebar */
+.sidebar-brand small{font-size:11px}
+.sidebar-new-audit{font-size:13px}
+.sidebar-section-title{font-size:11px}
+.sidebar-search{font-size:12px}
+.audit-item strong{font-size:13px}
+.audit-item small{font-size:11px}
+.mini-alert{font-size:9.5px}
+.sidebar-text-action{font-size:12px}
+.sidebar-system-status .badge{font-size:9.5px}
+.sidebar-system-status .user-label{font-size:10px}
+.sidebar-autosave .save-status{font-size:9.5px}
+.sidebar-autosave small{font-size:9.5px}
+
+/* Audit header */
+.audit-heading-line h2{font-size:19px}
+.audit-status-chip{font-size:10.5px;min-height:24px;padding:4px 9px}
+.audit-heading-main>p{font-size:10.5px}
+.header-inline-progress strong{font-size:11px}
+.header-firebase-state{font-size:11px}
+.v17-audit-header .summary-actions>.btn,
+.v17-audit-header .export-menu-trigger{font-size:11.5px;height:36px;padding:8px 12px}
+
+/* Workspace navigation */
+.workspace-tab{font-size:12.5px}
+.workspace-tab-count{font-size:10px;min-width:22px;height:20px}
+.workspace-nav-status{font-size:10.5px}
+.workspace-quick-alert{font-size:10px}
+
+/* Right context rail */
+.rail-title strong{font-size:13px}
+.rail-icon{font-size:11px}
+.rail-stat,.rail-total{font-size:11.5px}
+.rail-stat b{font-size:12px}
+.rail-total strong{font-size:13px}
+.rail-link{font-size:10.5px}
+
+/* Checklist toolbar */
+.toolbar-search-group .input{font-size:12px;height:38px}
+.type-segment{font-size:11px;height:36px}
+.primary-workflow{font-size:11.5px;height:38px}
+.toolbar-advanced-row select{font-size:10.5px;height:32px}
+.toolbar-advanced-row .compact-action{font-size:10.5px;height:32px}
+
+/* Question headings */
+.question-text{font-size:13.5px}
+.question-ref{font-size:10.5px}
+.question-stats>strong{font-size:12px}
+.question-stats>span:not(.qstat):not(.question-chevron){font-size:10px}
+.qstat{font-size:9.5px;padding:3px 6px}
+.question-chevron{font-size:12px}
+
+/* AAD compact rows */
+.aad-accordion-head{min-height:52px}
+.aad-row-grip{font-size:11px}
+.aad-row-id strong{font-size:12.5px}
+.chip{font-size:9.5px!important;padding:3px 7px!important}
+.aad-result-pill{font-size:10.5px!important}
+.aad-result-pill b{font-size:11.5px}
+.finding-level-inline{font-size:10.5px}
+.aad-row-result .followup-badge{font-size:9px!important;padding:3px 6px!important}
+.aad-row-flags{font-size:11.5px}
+.aad-summary-criterion{font-size:10.8px!important;line-height:1.35!important}
+.aad-save-summary{font-size:9.5px!important}
+.aad-chevron{font-size:11px!important}
+
+/* Expanded AAD - reference and auditor workspace */
+.workbench-title{font-size:13px}
+.workbench-icon{font-size:11px;width:22px;height:22px}
+.control-info-block>span{font-size:11px}
+.control-info-block p{font-size:11.5px;line-height:1.6}
+.record-fields label,.finding-detail-box label,.followup-box label{font-size:11px}
+.record-fields textarea{font-size:12px;line-height:1.5;min-height:62px}
+.note-field{min-height:82px!important}
+.result-btn,.result-clear{font-size:10.8px!important;min-height:35px!important}
+.finding-detail-title span{font-size:12px!important}
+.finding-detail-title small{font-size:10px!important}
+.required-badge{font-size:9px!important}
+.finding-level-btn{font-size:10.5px!important;min-height:32px!important}
+.finding-text-grid textarea{font-size:12px!important;line-height:1.5;min-height:72px!important}
+.finding-validation{font-size:10.5px!important}
+
+/* Follow-up task band */
+.followup-box-title>div span{font-size:12px}
+.followup-box-title>div small{font-size:10px}
+.followup-box-title>.followup-badge{font-size:9.5px!important}
+.followup-text-field textarea{font-size:12px!important;line-height:1.5;min-height:68px!important}
+.followup-date-field .input,.followup-status-field .input{font-size:11.5px;height:35px}
+.followup-date-btn{font-size:10px!important;min-height:29px!important}
+.followup-action-btn{font-size:10.5px!important;min-height:32px!important}
+.followup-info{font-size:10.5px!important}
+.save-state{font-size:10.5px!important}
+
+/* Findings / pending views */
+.finding-summary-title-row h2,.followup-title-row h2{font-size:16px!important}
+.finding-summary-title-row p,.followup-title-row p{font-size:11px!important}
+.finding-summary-table{font-size:13px}
+.finding-summary-table th{font-size:10.5px}
+.finding-missing{font-size:11px}
+.followup-table{font-size:13px}
+.followup-table th{font-size:11px}
+
+/* Compact responsive text: do not shrink below usable sizes */
+@media(max-width:560px){
+  .audit-heading-line h2{font-size:16px}
+  .v17-audit-header .summary-actions>.btn{font-size:10.5px}
+  .workspace-tab{font-size:11px}
+  .question-text{font-size:12.5px}
+  .aad-row-id strong{font-size:12px}
+  .aad-result-pill{font-size:10px!important}
+  .record-fields label,.finding-detail-box label,.followup-box label{font-size:10.5px}
+  .record-fields textarea,.finding-text-grid textarea,.followup-text-field textarea{font-size:12px!important}
+}
