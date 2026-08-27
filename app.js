@@ -468,6 +468,7 @@
   }
   function renderAad(i,r){
     const result=r.result||''; const hasTask=hasFollowUp(r); const taskClass=followUpClass(r); const taskLabel=followUpLabel(r);
+    const hasOpenTask=isOpenFollowUpTiming(taskClass);
     const status=effectiveFollowUpStatus(r);
     const resultClass=result ? 'result-'+result.replace(/[^a-zA-Z0-9ÇĞİÖŞÜçğıöşü]/g,'-') : 'result-unassessed';
     const resultLabel=result||'Değerlendirilmedi';
@@ -476,11 +477,11 @@
     const hasEvidence=!!String(r.evidenceRefs||'').trim();
     const hasNote=!!String(r.auditorNote||'').trim();
     const saveLabel=r.updatedAt?'✓ Kayıtlı':'— Veri yok';
-    return `<article class="aad-card aad-accordion ${resultClass} ${taskClass==='overdue'?'has-overdue':hasTask?'has-followup':''} ${expanded?'expanded':''}" data-key="${esc(i.htmlKey)}">
+    return `<article class="aad-card aad-accordion ${resultClass} ${taskClass==='overdue'?'has-overdue':hasOpenTask?'has-followup':''} ${expanded?'expanded':''}" data-key="${esc(i.htmlKey)}">
       <button type="button" class="aad-accordion-head" aria-expanded="${expanded?'true':'false'}" aria-controls="aad-body-${esc(i.htmlKey)}">
         <span class="aad-row-grip" aria-hidden="true">⋮⋮</span>
         <div class="aad-row-id"><strong>${esc(i.aadCode)}</strong><span class="chip ${i.auditType==='Uzaktan'?'remote':'onsite'}">${esc(i.auditType).toUpperCase()}</span></div>
-        <div class="aad-row-result"><span class="aad-result-pill ${resultClass}"><b>${resultIconValue}</b>${esc(resultLabel)}</span>${isNoncompliant(r)&&r.findingLevel?`<span class="finding-level-inline">· ${esc(r.findingLevel.replace('Seviye ', 'S'))}</span>`:''}${hasTask?`<span class="followup-badge ${taskClass}">${taskClass==='overdue'?'Gecikmiş':taskClass==='today'?'Bugün':'Beklenen Husus Var'}</span>`:''}</div>
+        <div class="aad-row-result"><span class="aad-result-pill ${resultClass}"><b>${resultIconValue}</b>${esc(resultLabel)}</span>${isNoncompliant(r)&&r.findingLevel?`<span class="finding-level-inline">· ${esc(r.findingLevel.replace('Seviye ', 'S'))}</span>`:''}${hasOpenTask?`<span class="followup-badge ${taskClass}">${taskClass==='overdue'?'Gecikmiş':taskClass==='today'?'Bugün':'Beklenen Husus Var'}</span>`:''}</div>
         <div class="aad-row-flags">${hasNote?'<span title="Denetçi notu var">▤</span>':''}${hasEvidence?'<span title="Kanıt referansı var">⌕</span>':''}</div>
         <div class="aad-summary-criterion">${esc(i.atomicCriterion)}</div>
         <span class="aad-save-summary ${r.updatedAt?'saved':'empty'}">${saveLabel}</span>
@@ -702,17 +703,17 @@
   }
 
   function refreshCardFollowUp(card,r){
-    const active=hasFollowUp(r); const timing=followUpTiming(r); const label=followUpLabel(r);
+    const active=hasFollowUp(r); const timing=followUpTiming(r); const label=followUpLabel(r); const openTask=isOpenFollowUpTiming(timing);
     const box=card.querySelector('.followup-box'); const dateInput=card.querySelector('[data-field="reminderDate"]'); const statusSelect=card.querySelector('[data-field="followUpStatus"]');
     box.classList.toggle('active',active);
     dateInput.disabled=!active; statusSelect.disabled=!active;
     card.querySelectorAll('.followup-date-btn').forEach(btn=>btn.disabled=!active);
     if(active){ statusSelect.value=effectiveFollowUpStatus(r); }
     else { dateInput.value=''; statusSelect.value='Bekleniyor'; }
-    card.classList.toggle('has-followup',active && timing!=='overdue');
+    card.classList.toggle('has-followup',openTask && timing!=='overdue');
     card.classList.toggle('has-overdue',timing==='overdue');
     const statusWrap=card.querySelector('.aad-row-result'); const oldBadge=statusWrap?.querySelector('.followup-badge'); if(oldBadge)oldBadge.remove();
-    if(active && statusWrap){
+    if(openTask && statusWrap){
       const badge=document.createElement('span'); badge.className=`followup-badge ${timing}`; badge.textContent=timing==='overdue'?'Gecikmiş':timing==='today'?'Bugün':'Beklenen Husus Var'; statusWrap.appendChild(badge);
     }
     const titleWrap=card.querySelector('.followup-box-title');
@@ -939,9 +940,26 @@
     }
   }
 
+  function safeExportFilePart(value){
+    return String(value||'').trim().replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,' ').replace(/[. ]+$/g,'').trim();
+  }
+  function exportAuditDateLabel(a){
+    const start=String(a?.startDate||'').trim();
+    const end=String(a?.endDate||'').trim();
+    if(start && end){
+      if(start===end) return start;
+      const sp=start.split('-'), ep=end.split('-');
+      if(sp.length===3 && ep.length===3 && sp[0]===ep[0] && sp[1]===ep[1]) return `${start}_${ep[2]}`;
+      return `${start}_${end}`;
+    }
+    return start || end || '';
+  }
   function exportFileBase(a){
-    const raw=(a.auditNo||a.organizationName||'denetim').trim() || 'denetim';
-    return `FR13_${raw.replace(/[^a-z0-9çğıöşü_-]+/gi,'_').replace(/^_+|_+$/g,'')}`;
+    const organization=safeExportFilePart(a?.organizationName)||'Denetim';
+    const dateLabel=exportAuditDateLabel(a);
+    const auditNo=safeExportFilePart(a?.auditNo);
+    const suffix=dateLabel || auditNo || localDateString();
+    return `${organization}_FR13_${suffix}`;
   }
 
   function exportStats(a){
