@@ -376,6 +376,11 @@
     document.querySelectorAll('.workspace-tab').forEach(btn=>{
       const active=btn.dataset.workspaceView===state.workspaceView; btn.classList.toggle('active',active); btn.setAttribute('aria-selected',active?'true':'false');
     });
+    if(els.pdfExportBtn){
+      const labels={checklist:'📄 PDF — Kontrol Listesi',findings:'📄 PDF — Tespitler',pending:'📄 PDF — Bekleyen İşler',summary:'📄 PDF — Denetim Özeti'};
+      els.pdfExportBtn.textContent=labels[state.workspaceView]||'📄 PDF';
+      els.pdfExportBtn.title='Yalnız aktif çalışma sekmesini PDF olarak dışa aktar';
+    }
   }
   function scrollWorkspaceTop(){
     if(!els.workspaceNav) return;
@@ -1087,70 +1092,104 @@
       const st=exportStats(a);
       const findings=criteria.map(i=>({i,r:getResponse(a,i.htmlKey)})).filter(x=>isNoncompliant(x.r));
       const openFollowups=criteria.map(i=>({i,r:getResponse(a,i.htmlKey)})).filter(x=>isOpenFollowUpTiming(followUpTiming(x.r)));
+      const view=state.workspaceView||'checklist';
+      const viewInfo={
+        checklist:{title:'Kontrol Listesi',subtitle:'AAD değerlendirme kayıtları',suffix:'Kontrol_Listesi'},
+        findings:{title:'Tespitler',subtitle:'Uygun Değil değerlendirmeleri ve bulgu kayıtları',suffix:'Tespitler'},
+        pending:{title:'Bekleyen İşler',subtitle:'Açık takip / beklenen husus kayıtları',suffix:'Bekleyen_Isler'},
+        summary:{title:'Denetim Özeti',subtitle:'Denetim ilerleme ve sonuç özeti',suffix:'Denetim_Ozeti'}
+      }[view]||{title:'Kontrol Listesi',subtitle:'AAD değerlendirme kayıtları',suffix:'Kontrol_Listesi'};
+
       const content=[
         {text:'FR.13 EMNİYET OLAYLARI DENETİMİ',style:'title'},
-        {text:'Denetim değerlendirme ve kayıt çıktısı',style:'subtitle'},
-        pdfMetaTable(a),
-        {text:'Denetim Özeti',style:'sectionTitle'},
-        {table:{widths:['*','*','*','*'],body:[
+        {text:`${viewInfo.title} — ${viewInfo.subtitle}`,style:'subtitle'},
+        pdfMetaTable(a)
+      ];
+
+      const addSummaryBlock=()=>{
+        content.push({text:'Denetim Özeti',style:'sectionTitle'});
+        content.push({table:{widths:['*','*','*','*'],body:[
           [{text:'İlerleme',style:'summaryLabel'},{text:'Uygun',style:'summaryLabel'},{text:'Uygun Değil',style:'summaryLabel'},{text:'Takip / Bekleyen',style:'summaryLabel'}],
           [{text:`${st.assessed}/${criteria.length}  (%${st.percent})`,style:'summaryValue'},{text:String(st.compliant),style:'summaryValueGood'},{text:String(st.noncompliant),style:'summaryValueBad'},{text:String(st.pending),style:'summaryValueWarn'}],
           [{text:`Uzaktan ${st.remote}/${criteria.filter(i=>i.auditType==='Uzaktan').length} • Yerinde ${st.onsite}/${criteria.filter(i=>i.auditType==='Yerinde').length}`,colSpan:2,style:'summarySub'},{},{text:`N/A ${st.na} • Sorulmadı ${st.notAsked}`,style:'summarySub'},{text:`Gecikmiş ${st.overdue} • Tarihsiz ${st.undated}`,style:'summarySub'}]
-        ]},layout:'lightHorizontalLines',margin:[0,0,0,12]},
-        {text:'Tespit Özeti',style:'sectionTitle'},
-        {table:{widths:['*','*','*'],body:[
-          [{text:'Seviye 1',style:'summaryLabel'},{text:'Seviye 2',style:'summaryLabel'},{text:'Gözlem',style:'summaryLabel'}],
-          [{text:String(st.level1),style:'summaryValueBad'},{text:String(st.level2),style:'summaryValueWarn'},{text:String(st.observation),style:'summaryValue'}]
-        ]},layout:'lightHorizontalLines',margin:[0,0,0,12]}
-      ];
+        ]},layout:'lightHorizontalLines',margin:[0,0,0,12]});
+        content.push({text:'Tespit Özeti',style:'sectionTitle'});
+        content.push({table:{widths:['*','*','*','*'],body:[
+          [{text:'Seviye 1',style:'summaryLabel'},{text:'Seviye 2',style:'summaryLabel'},{text:'Gözlem',style:'summaryLabel'},{text:'Eksik Bulgu Bilgisi',style:'summaryLabel'}],
+          [{text:String(st.level1),style:'summaryValueBad'},{text:String(st.level2),style:'summaryValueWarn'},{text:String(st.observation),style:'summaryValue'},{text:String(st.incompleteFindings),style:st.incompleteFindings?'summaryValueBad':'summaryValue'}]
+        ]},layout:'lightHorizontalLines',margin:[0,0,0,12]});
+      };
 
-      if(findings.length){
-        content.push({text:`Uygun Değil / Bulgular (${findings.length})`,style:'sectionTitle'});
-        content.push({table:{headerRows:1,widths:[52,58,80,'*','*'],body:[
-          [{text:'Soru',style:'tableHead'},{text:'AAD',style:'tableHead'},{text:'Seviye',style:'tableHead'},{text:'Ön Tanımlı Bulgu',style:'tableHead'},{text:'Bulgu Açıklaması',style:'tableHead'}],
-          ...findings.map(({i,r})=>[i.shortCode,i.aadCode,r.findingLevel||'Eksik',r.predefinedFinding||'Eksik',r.findingDescription||'Eksik'])
-        ]},layout:'lightHorizontalLines',fontSize:7.5,margin:[0,0,0,14]});
-      }
+      const addFindingsBlock=()=>{
+        content.push({text:`Tespitler (${findings.length})`,style:'sectionTitle'});
+        content.push({table:{widths:['*','*','*','*'],body:[
+          [{text:'Seviye 1',style:'summaryLabel'},{text:'Seviye 2',style:'summaryLabel'},{text:'Gözlem',style:'summaryLabel'},{text:'Eksik Bulgu Bilgisi',style:'summaryLabel'}],
+          [{text:String(st.level1),style:'summaryValueBad'},{text:String(st.level2),style:'summaryValueWarn'},{text:String(st.observation),style:'summaryValue'},{text:String(st.incompleteFindings),style:st.incompleteFindings?'summaryValueBad':'summaryValue'}]
+        ]},layout:'lightHorizontalLines',margin:[0,0,0,12]});
+        if(findings.length){
+          content.push({table:{headerRows:1,widths:[52,58,80,'*','*'],body:[
+            [{text:'Soru',style:'tableHead'},{text:'AAD',style:'tableHead'},{text:'Seviye',style:'tableHead'},{text:'Ön Tanımlı Bulgu',style:'tableHead'},{text:'Bulgu Açıklaması',style:'tableHead'}],
+            ...findings.map(({i,r})=>[i.shortCode,i.aadCode,r.findingLevel||'Eksik',r.predefinedFinding||'Eksik',r.findingDescription||'Eksik'])
+          ]},layout:'lightHorizontalLines',fontSize:7.5,margin:[0,0,0,14]});
+        }else{
+          content.push({text:'Uygun Değil / bulgu kaydı bulunmuyor.',style:'emptyNote',margin:[0,0,0,14]});
+        }
+      };
 
-      if(openFollowups.length){
+      const addPendingBlock=()=>{
         content.push({text:`Bekleyen İşler (${openFollowups.length})`,style:'sectionTitle'});
-        content.push({table:{headerRows:1,widths:[52,52,'*',70,78],body:[
-          [{text:'Soru',style:'tableHead'},{text:'AAD',style:'tableHead'},{text:'Beklenen Husus',style:'tableHead'},{text:'Hatırlatma',style:'tableHead'},{text:'Durum',style:'tableHead'}],
-          ...openFollowups.map(({i,r})=>[i.shortCode,i.aadCode,r.followUpText||'',r.reminderDate?formatDate(r.reminderDate):'Tarih yok',followUpLabel(r)])
-        ]},layout:'lightHorizontalLines',fontSize:7.5,margin:[0,0,0,14]});
-      }
+        content.push({table:{widths:['*','*','*','*'],body:[
+          [{text:'Açık / Bekleyen',style:'summaryLabel'},{text:'Gecikmiş',style:'summaryLabel'},{text:'Tarihsiz',style:'summaryLabel'},{text:'Bugün',style:'summaryLabel'}],
+          [{text:String(st.pending),style:'summaryValueWarn'},{text:String(st.overdue),style:st.overdue?'summaryValueBad':'summaryValue'},{text:String(st.undated),style:st.undated?'summaryValueWarn':'summaryValue'},{text:String(openFollowups.filter(({r})=>followUpTiming(r)==='today').length),style:'summaryValue'}]
+        ]},layout:'lightHorizontalLines',margin:[0,0,0,12]});
+        if(openFollowups.length){
+          content.push({table:{headerRows:1,widths:[52,52,'*',70,78],body:[
+            [{text:'Soru',style:'tableHead'},{text:'AAD',style:'tableHead'},{text:'Beklenen Husus',style:'tableHead'},{text:'Hatırlatma',style:'tableHead'},{text:'Durum',style:'tableHead'}],
+            ...openFollowups.map(({i,r})=>[i.shortCode,i.aadCode,r.followUpText||'',r.reminderDate?formatDate(r.reminderDate):'Tarih yok',followUpLabel(r)])
+          ]},layout:'lightHorizontalLines',fontSize:7.5,margin:[0,0,0,14]});
+        }else{
+          content.push({text:'Açık Takip / Beklenen Husus bulunmuyor.',style:'emptyNote',margin:[0,0,0,14]});
+        }
+      };
 
-      content.push({text:'AAD Değerlendirmeleri',style:'sectionTitle',pageBreak:'before'});
-      let lastQuestion='';
-      criteria.forEach(i=>{
-        const r=getResponse(a,i.htmlKey);
-        if(i.questionCode!==lastQuestion){
-          lastQuestion=i.questionCode;
-          content.push({text:`${i.shortCode} — ${i.question}`,style:'questionTitle',margin:[0,10,0,5]});
-          if(i.reference) content.push({text:i.reference,style:'reference',margin:[0,0,0,5]});
-        }
-        const body=[
-          [{text:`${i.aadCode} • ${i.auditType}`,style:'aadTitle'},{text:pdfSafe(r.result,'Değerlendirilmedi'),style:r.result==='Uygun'?'resultGood':r.result==='Uygun Değil'?'resultBad':'resultNeutral'}],
-          [{text:'Atomik Kriter',style:'fieldLabel'},{text:pdfSafe(i.atomicCriterion),style:'fieldValue'}],
-          [{text:'Denetçi Açıklaması / Kabul Edilebilir Kanıtlar',style:'fieldLabel'},{text:pdfSafe(i.auditorGuidance),style:'fieldValue'}],
-          [{text:'İşletme Kanıt Referansları',style:'fieldLabel'},{text:pdfSafe(r.evidenceRefs),style:'fieldValue'}],
-          [{text:'Denetçi Notu',style:'fieldLabel'},{text:pdfSafe(r.auditorNote),style:'fieldValue'}]
-        ];
-        if(isNoncompliant(r)){
-          body.push([{text:'Bulgu Seviyesi',style:'fieldLabel'},{text:pdfSafe(r.findingLevel,'Eksik'),style:'fieldValue'}]);
-          body.push([{text:'Ön Tanımlı Bulgu',style:'fieldLabel'},{text:pdfSafe(r.predefinedFinding,'Eksik'),style:'fieldValue'}]);
-          body.push([{text:'Bulgu Açıklaması',style:'fieldLabel'},{text:pdfSafe(r.findingDescription,'Eksik'),style:'fieldValue'}]);
-        }
-        if(hasFollowUp(r)){
-          body.push([{text:'Takip / Beklenen Husus',style:'fieldLabel'},{text:pdfSafe(r.followUpText),style:'fieldValue'}]);
-          body.push([{text:'Takip Durumu',style:'fieldLabel'},{text:`${followUpLabel(r)}${r.reminderDate?' • '+formatDate(r.reminderDate):''}`,style:'fieldValue'}]);
-        }
-        content.push({table:{widths:[145,'*'],body},layout:{hLineColor:()=> '#d9e1e8',vLineColor:()=> '#d9e1e8',paddingLeft:()=>6,paddingRight:()=>6,paddingTop:()=>5,paddingBottom:()=>5},margin:[0,0,0,8],fontSize:7.8});
-      });
+      const addChecklistBlock=()=>{
+        content.push({text:`Kontrol Listesi (${criteria.length} AAD)`,style:'sectionTitle'});
+        let lastQuestion='';
+        criteria.forEach(i=>{
+          const r=getResponse(a,i.htmlKey);
+          if(i.questionCode!==lastQuestion){
+            lastQuestion=i.questionCode;
+            content.push({text:`${i.shortCode} — ${i.question}`,style:'questionTitle',margin:[0,10,0,5]});
+            if(i.reference) content.push({text:i.reference,style:'reference',margin:[0,0,0,5]});
+          }
+          const body=[
+            [{text:`${i.aadCode} • ${i.auditType}`,style:'aadTitle'},{text:pdfSafe(r.result,'Değerlendirilmedi'),style:r.result==='Uygun'?'resultGood':r.result==='Uygun Değil'?'resultBad':'resultNeutral'}],
+            [{text:'Atomik Kriter',style:'fieldLabel'},{text:pdfSafe(i.atomicCriterion),style:'fieldValue'}],
+            [{text:'Denetçi Açıklaması / Kabul Edilebilir Kanıtlar',style:'fieldLabel'},{text:pdfSafe(i.auditorGuidance),style:'fieldValue'}],
+            [{text:'İşletme Kanıt Referansları',style:'fieldLabel'},{text:pdfSafe(r.evidenceRefs),style:'fieldValue'}],
+            [{text:'Denetçi Notu',style:'fieldLabel'},{text:pdfSafe(r.auditorNote),style:'fieldValue'}]
+          ];
+          if(isNoncompliant(r)){
+            body.push([{text:'Bulgu Seviyesi',style:'fieldLabel'},{text:pdfSafe(r.findingLevel,'Eksik'),style:'fieldValue'}]);
+            body.push([{text:'Ön Tanımlı Bulgu',style:'fieldLabel'},{text:pdfSafe(r.predefinedFinding,'Eksik'),style:'fieldValue'}]);
+            body.push([{text:'Bulgu Açıklaması',style:'fieldLabel'},{text:pdfSafe(r.findingDescription,'Eksik'),style:'fieldValue'}]);
+          }
+          if(hasFollowUp(r)){
+            body.push([{text:'Takip / Beklenen Husus',style:'fieldLabel'},{text:pdfSafe(r.followUpText),style:'fieldValue'}]);
+            body.push([{text:'Takip Durumu',style:'fieldLabel'},{text:`${followUpLabel(r)}${r.reminderDate?' • '+formatDate(r.reminderDate):''}`,style:'fieldValue'}]);
+          }
+          content.push({table:{widths:[145,'*'],body},layout:{hLineColor:()=> '#d9e1e8',vLineColor:()=> '#d9e1e8',paddingLeft:()=>6,paddingRight:()=>6,paddingTop:()=>5,paddingBottom:()=>5},margin:[0,0,0,8],fontSize:7.8});
+        });
+      };
+
+      if(view==='findings') addFindingsBlock();
+      else if(view==='pending') addPendingBlock();
+      else if(view==='summary') addSummaryBlock();
+      else addChecklistBlock();
 
       const doc={
         pageSize:'A4',pageMargins:[34,54,34,38],
-        header:(currentPage)=>({text:`FR.13 • ${pdfSafe(a.auditNo,'Denetim')} • ${pdfSafe(a.organizationName)}`,fontSize:7,color:'#64748b',margin:[34,20,34,0],alignment:'right'}),
+        header:(currentPage)=>({text:`FR.13 • ${viewInfo.title} • ${pdfSafe(a.auditNo,'Denetim')} • ${pdfSafe(a.organizationName)}`,fontSize:7,color:'#64748b',margin:[34,20,34,0],alignment:'right'}),
         footer:(currentPage,pageCount)=>({columns:[{text:`Oluşturma: ${new Date().toLocaleString('tr-TR')}`,alignment:'left'},{text:`Sayfa ${currentPage} / ${pageCount}`,alignment:'right'}],fontSize:7,color:'#64748b',margin:[34,0,34,14]}),
         content,
         defaultStyle:{font:'Roboto',fontSize:8.5,color:'#17212b',lineHeight:1.18},
@@ -1159,11 +1198,12 @@
           sectionTitle:{fontSize:12,bold:true,color:'#123b61',margin:[0,7,0,6]}, metaLabel:{bold:true,color:'#536577',fillColor:'#f5f8fa',fontSize:7.5},metaValue:{fontSize:8},
           summaryLabel:{bold:true,color:'#536577',fillColor:'#f5f8fa',alignment:'center',fontSize:7.5},summaryValue:{bold:true,fontSize:14,alignment:'center',color:'#123b61'},summaryValueGood:{bold:true,fontSize:14,alignment:'center',color:'#176b3a'},summaryValueBad:{bold:true,fontSize:14,alignment:'center',color:'#a61b1b'},summaryValueWarn:{bold:true,fontSize:14,alignment:'center',color:'#9a650c'},summarySub:{fontSize:7.5,alignment:'center',color:'#64748b'},
           tableHead:{bold:true,color:'#fff',fillColor:'#123b61',fontSize:7.2},questionTitle:{fontSize:10,bold:true,color:'#123b61'},reference:{fontSize:7,color:'#64748b',italics:true},
-          aadTitle:{bold:true,color:'#123b61',fillColor:'#eef5fb'},resultGood:{bold:true,color:'#176b3a',alignment:'right',fillColor:'#edf9f2'},resultBad:{bold:true,color:'#a61b1b',alignment:'right',fillColor:'#fff0f0'},resultNeutral:{bold:true,color:'#536577',alignment:'right',fillColor:'#f5f8fa'},fieldLabel:{bold:true,color:'#536577',fillColor:'#f7f9fb',fontSize:7.2},fieldValue:{fontSize:7.8}
+          aadTitle:{bold:true,color:'#123b61',fillColor:'#eef5fb'},resultGood:{bold:true,color:'#176b3a',alignment:'right',fillColor:'#edf9f2'},resultBad:{bold:true,color:'#a61b1b',alignment:'right',fillColor:'#fff0f0'},resultNeutral:{bold:true,color:'#536577',alignment:'right',fillColor:'#f5f8fa'},fieldLabel:{bold:true,color:'#536577',fillColor:'#f7f9fb',fontSize:7.2},fieldValue:{fontSize:7.8},
+          emptyNote:{fontSize:8.5,color:'#64748b',italics:true}
         }
       };
-      pdfMake.createPdf(doc).download(exportFileBase(a)+'.pdf');
-      toast('PDF raporu hazırlanıyor.');
+      pdfMake.createPdf(doc).download(`${exportFileBase(a)}_${viewInfo.suffix}.pdf`);
+      toast(`${viewInfo.title} PDF raporu hazırlanıyor.`);
     }catch(err){ console.error('PDF dışa aktarma hatası',err); toast('PDF oluşturulamadı.'); }
   }
 
