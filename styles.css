@@ -654,3 +654,112 @@ body{font-size:14px}
     align-items:stretch;
   }
 }
+
+/* ===== v17.6: Definitive checklist toolbar layout fix ===== */
+/* v17-toolbar used to inherit .human-toolbar's grid container. That caused
+   toolbar-main-row and toolbar-advanced-row to occupy the same horizontal
+   grid track and overlap. Make the v17 toolbar an explicit vertical stack. */
+.v17-toolbar{
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:stretch !important;
+  gap:0 !important;
+  grid-template-columns:none !important;
+}
+.v17-toolbar > .toolbar-main-row,
+.v17-toolbar > .toolbar-advanced-row{
+  width:100%;
+  min-width:0;
+}
+
+/* Primary row: search + audit type + next action. */
+.v17-toolbar .toolbar-main-row{
+  display:grid !important;
+  grid-template-columns:minmax(220px,1fr) minmax(240px,280px) minmax(205px,max-content) !important;
+  gap:10px !important;
+  align-items:center !important;
+}
+.v17-toolbar .toolbar-search-group,
+.v17-toolbar .type-segments,
+.v17-toolbar .primary-workflow{
+  min-width:0 !important;
+  grid-row:auto !important;
+  grid-column:auto !important;
+}
+.v17-toolbar .type-segments{
+  width:100% !important;
+  min-width:240px !important;
+}
+.v17-toolbar .primary-workflow{
+  width:auto !important;
+  max-width:100% !important;
+  justify-self:stretch !important;
+  white-space:nowrap !important;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+/* Secondary row: only result/follow-up filters + accordion action. */
+.v17-toolbar .toolbar-advanced-row{
+  display:grid !important;
+  grid-template-columns:minmax(160px,190px) minmax(170px,200px) 1fr auto !important;
+  gap:8px !important;
+  align-items:center !important;
+  margin-top:9px !important;
+  padding-top:9px !important;
+  overflow:visible !important;
+}
+.v17-toolbar .toolbar-advanced-row #typeFilter{
+  display:none !important;
+}
+.v17-toolbar .toolbar-advanced-row select{
+  width:100% !important;
+  min-width:0 !important;
+  max-width:none !important;
+}
+.v17-toolbar .toolbar-advanced-row .compact-action{
+  grid-column:4 !important;
+  margin-left:0 !important;
+  justify-self:end !important;
+  white-space:nowrap !important;
+}
+
+/* When the checklist column becomes narrower, put the primary action on its
+   own row instead of shrinking/overlapping neighboring controls. */
+@media(max-width:1180px){
+  .v17-toolbar .toolbar-main-row{
+    grid-template-columns:minmax(220px,1fr) minmax(240px,300px) !important;
+  }
+  .v17-toolbar .primary-workflow{
+    grid-column:1 / -1 !important;
+    width:100% !important;
+  }
+}
+
+@media(max-width:820px){
+  .v17-toolbar .toolbar-main-row{
+    display:flex !important;
+    flex-direction:column !important;
+    align-items:stretch !important;
+  }
+  .v17-toolbar .type-segments{
+    min-width:0 !important;
+  }
+  .v17-toolbar .toolbar-advanced-row{
+    grid-template-columns:1fr 1fr !important;
+  }
+  .v17-toolbar .toolbar-advanced-row .compact-action{
+    grid-column:1 / -1 !important;
+    width:100% !important;
+    justify-self:stretch !important;
+  }
+}
+
+@media(max-width:560px){
+  .v17-toolbar .toolbar-advanced-row{
+    grid-template-columns:1fr !important;
+  }
+  .v17-toolbar .toolbar-advanced-row .compact-action{
+    grid-column:1 !important;
+  }
+}
