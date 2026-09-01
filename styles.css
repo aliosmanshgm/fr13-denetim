@@ -585,3 +585,72 @@ body{font-size:14px}
     width:100%;
   }
 }
+
+
+/* ===== v17.5: Checklist toolbar layout fix ===== */
+/* Hide redundant type dropdown; segmented buttons are the primary control. */
+.toolbar-advanced-row #typeFilter{display:none}
+
+/* Use a stable two-row layout to prevent overlap in medium widths. */
+.toolbar-main-row{
+  grid-template-columns:minmax(260px,1fr) minmax(250px,300px);
+  align-items:center;
+}
+.type-segments{
+  min-width:0;
+  width:100%;
+}
+.primary-workflow{
+  grid-column:1 / -1;
+  justify-self:start;
+  min-height:38px;
+  white-space:nowrap;
+}
+.toolbar-advanced-row{
+  flex-wrap:wrap;
+}
+.toolbar-advanced-row select{
+  min-width:170px;
+}
+.toolbar-advanced-row .compact-action{
+  margin-left:auto;
+}
+
+@media(min-width:1480px){
+  .toolbar-main-row{
+    grid-template-columns:minmax(250px,1fr) minmax(250px,300px) auto;
+  }
+  .primary-workflow{
+    grid-column:auto;
+    justify-self:stretch;
+  }
+}
+
+@media(max-width:1280px){
+  .toolbar-main-row{
+    grid-template-columns:minmax(220px,1fr) minmax(240px,280px);
+  }
+  .primary-workflow{
+    grid-column:1 / -1;
+    width:100%;
+    justify-content:center;
+  }
+}
+
+@media(max-width:760px){
+  .toolbar-main-row{
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+  }
+  .primary-workflow,
+  .toolbar-advanced-row .compact-action,
+  .toolbar-advanced-row select{
+    width:100%;
+    min-width:0;
+  }
+  .toolbar-advanced-row{
+    flex-direction:column;
+    align-items:stretch;
+  }
+}
