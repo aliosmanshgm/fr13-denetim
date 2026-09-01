@@ -528,3 +528,60 @@ body{font-size:14px}
   .record-fields label,.finding-detail-box label,.followup-box label{font-size:10.5px}
   .record-fields textarea,.finding-text-grid textarea,.followup-text-field textarea{font-size:12px!important}
 }
+
+/* ===== v17.4: Denetim turu filtre gorunurlugu ===== */
+/* Uc filtre secenegi her zaman tam gorunsun; dar alanda kontrollu olarak yeni satira gecsin. */
+.toolbar-main-row{
+  grid-template-columns:minmax(220px,1fr) minmax(240px,270px) auto;
+}
+.type-segments{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(76px,1fr));
+  width:100%;
+  min-width:240px;
+  overflow:hidden;
+}
+.type-segment{
+  min-width:0;
+  width:100%;
+  padding:0 10px;
+  white-space:nowrap;
+  text-align:center;
+}
+
+/* Sag ozet rayi nedeniyle ana calisma alani daraldiginda filtre grubunu ayri satira al. */
+@media(max-width:1280px){
+  .toolbar-main-row{
+    grid-template-columns:minmax(220px,1fr) auto;
+  }
+  .type-segments{
+    grid-column:1 / 2;
+    grid-row:2;
+    width:min(100%,360px);
+    min-width:260px;
+  }
+  .primary-workflow{
+    grid-column:2;
+    grid-row:1 / 3;
+    align-self:stretch;
+  }
+}
+
+@media(max-width:760px){
+  .toolbar-main-row{
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+  }
+  .type-segments{
+    width:100%;
+    min-width:0;
+  }
+  .type-segment{
+    min-width:0;
+    padding:0 8px;
+  }
+  .primary-workflow{
+    width:100%;
+  }
+}
